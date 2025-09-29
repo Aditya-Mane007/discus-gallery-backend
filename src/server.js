@@ -10,6 +10,8 @@ const PORT = process.env.PORT || 5000;
 
 const app = express();
 
+console.log("DB Password:", process.env.DB_PASSWORD);
+
 // Middleware
 
 //Returns middleware that only parses json and only looks at requests where the Content-Type header matches the type option.
