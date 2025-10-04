@@ -3,12 +3,14 @@ const { pool } = require("../../config/db");
 const createUserTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS  users(
-    id SERIAL PRIMARY KEY,
+    id SERIAL NOT NULL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW() 
-)  
+    profile_photo VARCHAR(255),
+    verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW()    
+)
     `;
 
   try {
@@ -21,9 +23,8 @@ const createUserTable = async () => {
 
 const updateUsersTable = async () => {
   const queryText = `
-    ALTER TABLE IF EXISTS users
-    ADD COLUMN profile_phtot VARCHAR(255),
-    ADD COLUMN verified BOOLEAN DEFAULT false
+   ALTER TABLE IF EXISTS users
+   ALTER COLUMN id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY
     `;
 
   try {
@@ -34,5 +35,5 @@ const updateUsersTable = async () => {
   }
 };
 
-// createUserTable();
-updateUsersTable();
+createUserTable();
+// updateUsersTable();
