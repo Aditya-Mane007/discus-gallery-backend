@@ -1,4 +1,5 @@
 const { pool } = require("../config/db");
+const jwt = require("jsonwebtoken");
 
 const registerUserQuery = async () => {
   const result = await pool.query("SELCET * FROM users");
@@ -14,7 +15,31 @@ const checkIfUsersExists = async (email) => {
   };
   const result = await pool.query(query);
 
-  return result.rows;
+  return result.rowCount > 0;
+};
+
+const createUser = async (name, email, password) => {
+  const query = {
+    name: "create-user",
+    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3)RETURNING *",
+    values: [name, email, password],
+  };
+
+  const result = await pool.query(query);
+
+  if (result.rowCount > 0) {
+    const data = result.rows[0];
+
+    delete data.password;
+
+    const user = {
+      ...data,
+    };
+
+    return user;
+  }
+
+  return result.rowCount > 0;
 };
 
 const loginUserQuery = async () => {
@@ -27,9 +52,17 @@ const logoutQuery = async () => {
   return result.rows;
 };
 
+const generateToken = (userInfo) => {
+  return jwt.sign(userInfo, process.env.JWT_SECRET, {
+    expiresIn: "2d",
+  });
+};
+
 module.exports = {
   loginUserQuery,
-  checkIfUsersExists,
   registerUserQuery,
   logoutQuery,
+  checkIfUsersExists,
+  createUser,
+  generateToken,
 };

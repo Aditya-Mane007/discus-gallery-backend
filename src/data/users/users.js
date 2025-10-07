@@ -24,7 +24,7 @@ const createUserTable = async () => {
 const updateUsersTable = async () => {
   const queryText = `
    ALTER TABLE IF EXISTS users
-   ALTER COLUMN id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY
+   ALTER COLUMN id SERIAL NOT NULL AUTO_INCREMENT PRIMARY KEY
     `;
 
   try {
