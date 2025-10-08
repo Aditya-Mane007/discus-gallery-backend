@@ -5,6 +5,8 @@ const {
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
+const dotenv = require("dotenv");
+dotenv.config();
 
 const registerController = asyncHandler(async (req, res) => {
   const { email, password, name } = req.body;
@@ -41,12 +43,14 @@ const registerController = asyncHandler(async (req, res) => {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
   });
-  res.cookie("XSRF-TOKEN", req.csrfToken(), {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-  });
+  // res.cookie("XSRF-TOKEN", req.csrfToken(), {
+  //   maxAge: 3 * 24 * 60 * 60 * 1000,
+  //   expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  //   httpOnly: true,
+  // });
   res.status(201).json({
     accessToken: token,
     message: "User Registered Successfully",

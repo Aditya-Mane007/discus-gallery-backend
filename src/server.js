@@ -3,16 +3,14 @@ require("colors");
 const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
-const { pool } = require("./config/db.js");
+
 const errorHandler = require("./middleware/errorMiddleware.js");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
-const csrf = require("csurf");
 
 const PORT = process.env.PORT || 5000;
 
 const app = express();
-const csrfProtection = csrf({ cookie: true });
 
 // Middleware
 
@@ -27,7 +25,6 @@ app.use(
     credentials: true, // enable cookies to be sent cross-origin
   })
 );
-app.use(csrfProtection);
 
 // Routes
 app.use("/api", require("./routes/routes.js"));
