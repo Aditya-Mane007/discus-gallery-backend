@@ -42,6 +42,22 @@ const createUser = async (name, email, password) => {
   return result.rowCount > 0;
 };
 
+// check for user and return user password
+const getUserByEmail = async (email) => {
+  try {
+    const query = {
+      name: "check-if-user-exists",
+      text: "SELECT email FROM users WHERE email=$1 RETURNING *",
+      values: [email],
+    };
+    const result = await pool.query(query);
+
+    return result.rowCount > 0;
+  } catch (error) {
+    throw new Error("Error ");
+  }
+};
+
 const loginUserQuery = async () => {
   const result = await pool.query("SELECT * FROM users");
   return result.rows;
@@ -52,17 +68,11 @@ const logoutQuery = async () => {
   return result.rows;
 };
 
-const generateToken = (userInfo) => {
-  return jwt.sign(userInfo, process.env.JWT_SECRET, {
-    expiresIn: "2d",
-  });
-};
-
 module.exports = {
   loginUserQuery,
   registerUserQuery,
   logoutQuery,
   checkIfUsersExists,
   createUser,
-  generateToken,
+  getUserByEmail,
 };

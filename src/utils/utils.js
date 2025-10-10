@@ -2,26 +2,28 @@ const crypto = require("crypto");
 const dotenv = require("dotenv");
 dotenv.config();
 
-const csrfToken = () => {
-  const token = crypto.randomBytes(32).toString("hex");
+// To compare csrf token
+const compareToken = (recievedToken, generatedToken) => {
+  if (recievedToken.length !== generatedToken.length) {
+    return false;
+  }
 
-  const hashedToken = crypto
-    .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
-    .update(token)
-    .digest("hex");
+  let result = 0;
+  for (let i = 0; i < recievedToken.length; i++) {
+    result |= recievedToken.charAt(i) ^ generatedToken.charAt(i);
+  }
 
-  const isVerified = crypto.verify(
-    "sha256",
-    token,
-    process.env.CSRF_TOKEN_SECRET
-  );
-
-  console.log(isVerified);
-  return hashedToken;
+  return result === 0;
 };
 
-csrfToken();
+// Generate JWT Token
+const generateToken = (userInfo) => {
+  return jwt.sign(userInfo, process.env.JWT_SECRET, {
+    expiresIn: "2d",
+  });
+};
 
+// To Generate CSRF token
 const generateCSRFToken = (token) => {
   const hashedToken = crypto
     .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
@@ -31,26 +33,19 @@ const generateCSRFToken = (token) => {
   return hashedToken;
 };
 
+// To verify/compare/check token received token, generated csrf token from(received jwt token)
 const verifyToken = (jwtToken, receivedCSRFtoken) => {
   const hashedToken = crypto
     .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
     .update(jwtToken)
     .digest("hex");
 
-  const result = 0;
+  return compareToken(receivedCSRFtoken, hashedToken);
 };
 
-const compareToken = (recievedToken, generatedToken) => {
-  if (recievedToken.length !== generatedToken.length) {
-    return false;
-  }
-
-  const result = 0;
-  for (let i = 0; i < recievedToken.length; i++) {
-    result |= recievedToken.charAt(i) ^ generatedToken.charAt(i);
-  }
-
-  return result;
+module.exports = {
+  generateToken,
+  generateCSRFToken,
+  verifyToken,
+  compareToken,
 };
-
-// node src/utils/utils.js
