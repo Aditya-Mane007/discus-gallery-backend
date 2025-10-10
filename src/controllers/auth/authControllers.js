@@ -7,7 +7,7 @@ const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
 const { generateCSRFToken, generateToken } = require("../../utils/utils");
-const { regsiterSchema } = require("../../schema/authSchema");
+const { regsiterSchema, loginSchema } = require("../../schema/authSchema");
 dotenv.config();
 
 // Register Controller
@@ -65,12 +65,9 @@ const registerController = asyncHandler(async (req, res) => {
 
 // Login controller
 const loginController = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  await loginSchema.validateAsync(req.body);
 
-  if (!email || !password) {
-    res.status(400);
-    throw new Error("Please add all the fields");
-  }
+  const { email, password } = req.body;
 
   const userExists = await getUserByEmail(email);
 
