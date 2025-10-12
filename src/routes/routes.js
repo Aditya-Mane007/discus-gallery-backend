@@ -2,10 +2,6 @@ const express = require("express");
 
 const router = express.Router();
 
-router.get("/auth", (req, res) => {
-  res.status(200).json({
-    message: "Auth Routes",
-  });
-});
+router.use("/auth", require("./authRoutes.js"));
 
 module.exports = router;

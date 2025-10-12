@@ -3,8 +3,10 @@ require("colors");
 const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
-const { pool } = require("./config/db.js");
+
 const errorHandler = require("./middleware/errorMiddleware.js");
+const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
 
 const PORT = process.env.PORT || 5000;
 
@@ -14,7 +16,15 @@ const app = express();
 
 //Returns middleware that only parses json and only looks at requests where the Content-Type header matches the type option.
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+// Returns middleware that only parses urlencoded bodies and only looks at requests where the Content-Type header matches the type option
+app.use(express.urlencoded({ extended: true }));
+app.use(
+  cors({
+    origin: "http://localhost:3000", // your frontend origin
+    credentials: true, // enable cookies to be sent cross-origin
+  })
+);
 
 // Routes
 app.use("/api", require("./routes/routes.js"));
