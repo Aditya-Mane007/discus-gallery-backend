@@ -71,7 +71,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const userExists = await getUserByEmail(email);
 
-  if (!userExists) {
+  if (!userExists.rowCount) {
     res.status(404);
     throw new Error("User does not exists, please register");
   }

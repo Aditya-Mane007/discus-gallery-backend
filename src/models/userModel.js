@@ -21,7 +21,7 @@ const checkIfUsersExists = async (email) => {
 const createUser = async (name, email, password) => {
   const query = {
     name: "create-user",
-    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3)RETURNING *",
+    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3) RETURNING *",
     values: [name, email, password],
   };
 
@@ -44,18 +44,14 @@ const createUser = async (name, email, password) => {
 
 // check for user and return user password
 const getUserByEmail = async (email) => {
-  try {
-    const query = {
-      name: "check-if-user-exists",
-      text: "SELECT email FROM users WHERE email=$1 RETURNING *",
-      values: [email],
-    };
-    const result = await pool.query(query);
+  const query = {
+    name: "check-if-user-exists",
+    text: "SELECT email, password FROM users WHERE email=$1",
+    values: [email],
+  };
+  const result = await pool.query(query);
 
-    return result.rowCount > 0;
-  } catch (error) {
-    throw new Error("Error ");
-  }
+  return result;
 };
 
 const loginUserQuery = async () => {

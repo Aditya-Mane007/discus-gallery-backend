@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const dotenv = require("dotenv");
 dotenv.config();
+const jwt = require("jsonwebtoken");
 
 // To compare csrf token
 const compareToken = (recievedToken, generatedToken) => {
