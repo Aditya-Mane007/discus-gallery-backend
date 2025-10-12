@@ -54,20 +54,8 @@ const getUserByEmail = async (email) => {
   return result;
 };
 
-const loginUserQuery = async () => {
-  const result = await pool.query("SELECT * FROM users");
-  return result.rows;
-};
-
-const logoutQuery = async () => {
-  const result = await pool.query("SELCT * FROM users");
-  return result.rows;
-};
-
 module.exports = {
-  loginUserQuery,
   registerUserQuery,
-  logoutQuery,
   checkIfUsersExists,
   createUser,
   getUserByEmail,

@@ -35,5 +35,5 @@ const updateUsersTable = async () => {
   }
 };
 
-createUserTable();
+// createUserTable();
 // updateUsersTable();

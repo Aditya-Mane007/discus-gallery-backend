@@ -8,6 +8,11 @@ const {
 
 const router = express.Router();
 
+router.get("/auth", (req, res) => {
+  res.status(200).json({
+    message: "This is auth get router",
+  });
+});
 router.post("/register", registerController);
 router.post("/login", loginController);
 router.post("/logout", logoutController);
