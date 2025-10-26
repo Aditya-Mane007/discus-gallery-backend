@@ -1,0 +1,19 @@
+PORT = 5000
+
+NODE_ENV="development"
+
+DOMAIN=http://localhost:
+
+DB_USER="enter_db_username"
+
+DB_HOST="localhost"
+
+DATABASE="enter_db_name"
+
+DB_PORT=5432
+
+DB_PASSWORD="enter_db_password"
+
+JWT_SECRET="enter_jwt_secret_key"
+
+CSRF_TOKEN_SECRET="enter_csrf_secret_key"

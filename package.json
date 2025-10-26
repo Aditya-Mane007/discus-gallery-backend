@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "startdb" : "bash scripts/adminerStart.sh",
+    "stopdb" : "bash scripts/adminerStop.sh",
     "dev": "nodemon src/server.js"
   },
   "keywords": [],
