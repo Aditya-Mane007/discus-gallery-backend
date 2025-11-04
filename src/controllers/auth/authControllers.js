@@ -7,12 +7,17 @@ const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
 const { generateCSRFToken, generateToken } = require("../../utils/utils");
-const { regsiterSchema, loginSchema } = require("../../schema/authSchema");
+const { registerSchema, loginSchema } = require("../../schema/authSchema");
 dotenv.config();
 
 // Register Controller
 const registerController = asyncHandler(async (req, res) => {
-  await regsiterSchema.validateAsync(req.body);
+  try {
+    await registerSchema.validateAsync(req.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
 
   const { email, password, name } = req.body;
 
@@ -43,9 +48,8 @@ const registerController = asyncHandler(async (req, res) => {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    sameSite: "strict",
-    domain: "localhost",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
 
   const csrfToken = generateCSRFToken(token);
@@ -53,8 +57,8 @@ const registerController = asyncHandler(async (req, res) => {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
-    domain: "localhost",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
 
   res.status(201).json({
@@ -65,7 +69,12 @@ const registerController = asyncHandler(async (req, res) => {
 
 // Login controller
 const loginController = asyncHandler(async (req, res) => {
-  await loginSchema.validateAsync(req.body);
+  try {
+    await loginSchema.validateAsync(req.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
 
   const { email, password } = req.body;
 
