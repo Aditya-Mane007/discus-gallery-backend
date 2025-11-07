@@ -7,6 +7,8 @@ dotenv.config();
 const errorHandler = require("./middleware/errorMiddleware.js");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
+const decryptionMiddleware = require("./middleware/decryptionMiddlware.js");
+// const encryptionMiddleware = require("./middleware/encryptionMiddleware.js");
 
 const PORT = process.env.PORT || 5000;
 
@@ -27,8 +29,13 @@ app.use(
 );
 
 // Routes
-app.use("/api", require("./routes/routes.js"));
+app.use("/api", decryptionMiddleware, require("./routes/routes.js"));
 
+app.use("/test", (req, res) => {
+  res.status(200).json({
+    message: "TEST ROUTE",
+  });
+});
 // Testing postgres connection
 // app.get("/", async (req, res) => {
 //   const result = await pool.query("SELECT current_database()");
@@ -36,6 +43,7 @@ app.use("/api", require("./routes/routes.js"));
 // });
 
 // Error Handling Middleware
+// app.use("/test", encryptionMiddleware);
 app.use(errorHandler);
 
 app.listen(PORT, () => {

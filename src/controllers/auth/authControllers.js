@@ -6,7 +6,12 @@ const {
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
-const { generateCSRFToken, generateToken } = require("../../utils/utils");
+const {
+  generateCSRFToken,
+  generateToken,
+  decryptPayload,
+  encryptPayload,
+} = require("../../utils/utils");
 const { registerSchema, loginSchema } = require("../../schema/authSchema");
 dotenv.config();
 
@@ -124,9 +129,18 @@ const loginController = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json({
-    accessToken: token,
-    message: "Logged In Successfully",
+    response: encryptPayload(
+      JSON.stringify({
+        accessToken: token,
+        message: "Logged In Successfully",
+      })
+    ),
   });
+
+  // res.status(200).json({
+  //   accessToken: token,
+  //   message: "Logged In Successfully",
+  // });
 });
 
 // Logout Controller

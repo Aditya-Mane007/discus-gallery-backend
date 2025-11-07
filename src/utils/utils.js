@@ -1,7 +1,9 @@
-const crypto = require("crypto");
 const dotenv = require("dotenv");
 dotenv.config();
 const jwt = require("jsonwebtoken");
+const AES = require("crypto-js/aes");
+const ENC = require("crypto-js/enc-utf8");
+const crypto = require("crypto");
 
 // To compare csrf token
 const compareToken = (recievedToken, generatedToken) => {
@@ -44,9 +46,19 @@ const verifyToken = (jwtToken, receivedCSRFtoken) => {
   return compareToken(receivedCSRFtoken, hashedToken);
 };
 
+const encryptPayload = (payload) => {
+  return AES.encrypt(payload, process.env.ENCRYPTION_KEY).toString();
+};
+
+const decryptPayload = (payload) => {
+  return AES.decrypt(payload, process.env.ENCRYPTION_KEY).toString(ENC);
+};
+
 module.exports = {
   generateToken,
   generateCSRFToken,
   verifyToken,
   compareToken,
+  encryptPayload,
+  decryptPayload,
 };
