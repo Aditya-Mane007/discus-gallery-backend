@@ -17,3 +17,9 @@ DB_PASSWORD="enter_db_password"
 JWT_SECRET="enter_jwt_secret_key"
 
 CSRF_TOKEN_SECRET="enter_csrf_secret_key"
+
+GMAIL_APP_USER="example@gmail.com"
+
+GMAIL_APP_PASSWORD="*** *** **** ****"
+
+ENCRYPTION_KEY="ENCRYPTION_KEY"
