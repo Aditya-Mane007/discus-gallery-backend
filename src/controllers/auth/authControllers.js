@@ -129,19 +129,19 @@ const loginController = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json({
-    response: encryptPayload(
-      JSON.stringify({
-        accessToken: token,
-        message: "Logged In Successfully",
-      })
-    ),
+    accessToken: token,
+    message: "Logged In Successfully",
   });
-
-  // res.status(200).json({
-  //   accessToken: token,
-  //   message: "Logged In Successfully",
-  // });
 });
+
+// res.status(200).json({
+//   response: encryptPayload(
+//     JSON.stringify({
+//       accessToken: token,
+//       message: "Logged In Successfully",
+//     })
+//   ),
+// });
 
 // Logout Controller
 const logoutController = (req, res) => {

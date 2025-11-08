@@ -1,27 +1,22 @@
-const asyncHandler = require("express-async-handler");
-const CryptoJS = require("crypto-js");
+const { encryptPayload } = require("../utils/utils");
 
-const encryptionMiddleware = asyncHandler(async (req, res, next) => {
-  // Correctly bind res.json to res
+const encryptionMiddleware = (req, res, next) => {
   const originalJson = res.json.bind(res);
 
-  // Log the originalJson function reference for debugging
-  console.log("Original res.json:", originalJson);
+  res.json = (data) => {
+    try {
+      const dataString = JSON.stringify(data);
+      const encrypted = encryptPayload(dataString);
 
-  //   res.json = (body) => {
-  //     let bodyString =
-  //       typeof body === "object" ? JSON.stringify(body) : String(body);
-
-  //     const encrypted = CryptoJS.AES.encrypt(
-  //       bodyString,
-  //       process.env.ENCRYPTION_KEY
-  //     ).toString();
-
-  //     // Send encrypted payload wrapped in an object
-  //     return originalJson({ data: encrypted });
-  //   };
+      // Send encrypted data wrapped in an object
+      return originalJson({ response: encrypted });
+    } catch (err) {
+      // If encryption fails, send error or propagate error
+      return res.status(500).json({ error: "Encryption Error" });
+    }
+  };
 
   next();
-});
+};
 
 module.exports = encryptionMiddleware;

@@ -47,11 +47,27 @@ const verifyToken = (jwtToken, receivedCSRFtoken) => {
 };
 
 const encryptPayload = (payload) => {
-  return AES.encrypt(payload, process.env.ENCRYPTION_KEY).toString();
+  try {
+    const encrytedData = AES.encrypt(
+      payload,
+      process.env.ENCRYPTION_KEY
+    ).toString();
+    return encrytedData;
+  } catch (error) {
+    throw new Error("Error : ", error);
+  }
 };
 
 const decryptPayload = (payload) => {
-  return AES.decrypt(payload, process.env.ENCRYPTION_KEY).toString(ENC);
+  try {
+    const decryptedData = AES.decrypt(
+      payload,
+      process.env.ENCRYPTION_KEY
+    ).toString(ENC);
+    return decryptedData;
+  } catch (error) {
+    throw new Error("Error : ", error);
+  }
 };
 
 module.exports = {
