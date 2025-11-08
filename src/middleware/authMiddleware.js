@@ -1,17 +1,11 @@
-const loginUser = async () => {
-  return "Login User";
-};
+const asyncHandler = require("express-async-handler");
 
-const registerUser = async () => {
-  return "Register User";
-};
+const authMiddleware = asyncHandler((err, req, res, next) => {
+  let token;
 
-const logoutUser = async () => {
-  return "Logout User";
-};
+  console.log("REQ : ", req);
 
-module.exports = {
-  loginUser,
-  registerUser,
-  logoutUser,
-};
+  next();
+});
+
+module.exports = authMiddleware;

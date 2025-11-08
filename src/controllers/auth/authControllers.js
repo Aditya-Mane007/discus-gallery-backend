@@ -161,8 +161,15 @@ const logoutController = (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
+const authoriseController = (req, res) => {
+  res.status(200).json({
+    message: "Get User",
+  });
+};
+
 module.exports = {
   registerController,
   loginController,
   logoutController,
+  authoriseController,
 };
