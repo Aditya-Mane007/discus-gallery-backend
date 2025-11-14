@@ -3,6 +3,7 @@ const { encryptPayload } = require("../utils/utils");
 const encryptionMiddleware = (req, res, next) => {
   const originalJson = res.json.bind(res);
 
+  console.log("originalJson : ", res);
   res.json = (data) => {
     try {
       const dataString = JSON.stringify(data);
@@ -12,7 +13,12 @@ const encryptionMiddleware = (req, res, next) => {
       return originalJson({ response: encrypted });
     } catch (err) {
       // If encryption fails, send error or propagate error
-      return res.status(500).json({ error: "Encryption Error" });
+      if (!res.headersSent) {
+        return originalJson({ error: "Encryption Error" });
+      }
+
+      // prevent Express from trying to respond again
+      return;
     }
   };
 

@@ -54,9 +54,22 @@ const getUserByEmail = async (email) => {
   return result;
 };
 
+const getUserById = async (id) => {
+  const query = {
+    name: "get-user-by-id",
+    text: "SELECT id, email, profile_photo, verified FROM users WHERE id=$1",
+    values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
   createUser,
   getUserByEmail,
+  getUserById,
 };

@@ -64,7 +64,8 @@ const decryptPayload = (payload) => {
       payload,
       process.env.ENCRYPTION_KEY
     ).toString(ENC);
-    return decryptedData;
+
+    return JSON.parse(decryptedData);
   } catch (error) {
     throw new Error("Error : ", error);
   }

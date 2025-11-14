@@ -162,8 +162,10 @@ const logoutController = (req, res) => {
 };
 
 const authoriseController = (req, res) => {
+  console.log(req.user);
   res.status(200).json({
-    message: "Get User",
+    data: req.user,
+    message: "User Verification Successfull",
   });
 };
 
