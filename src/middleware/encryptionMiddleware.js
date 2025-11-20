@@ -2,8 +2,6 @@ const { encryptPayload } = require("../utils/utils");
 
 const encryptionMiddleware = (req, res, next) => {
   const originalJson = res.json.bind(res);
-
-  console.log("originalJson : ", res);
   res.json = (data) => {
     try {
       const dataString = JSON.stringify(data);

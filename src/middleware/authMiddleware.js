@@ -29,9 +29,12 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   try {
     const decodedTokon = jwt.verify(token, process.env.JWT_SECRET);
 
+
     const user = await getUserById(decodedTokon?.id);
 
-    if (user.rows.length === 0) {
+
+
+    if (user.rowCount === 0) {
       res.status(404);
       throw new Error("Unable to retrieve user account.");
     }
@@ -39,7 +42,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     req.user = user.rows[0];
     next();
   } catch (error) {
-    res.status(400);
+    res.status(500);
+    throw new Error("Verification failed, please try again after sometime");
   }
 });
 

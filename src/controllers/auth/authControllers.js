@@ -2,6 +2,7 @@ const {
   checkIfUsersExists,
   createUser,
   getUserByEmail,
+  getUserById,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -88,7 +89,7 @@ const loginController = asyncHandler(async (req, res) => {
   if (!userExists.rowCount) {
     res.status(404);
     throw new Error("User does not exists, please register");
-  }
+  } 
 
   const checkPassword = await bcrypt.compare(
     password,
@@ -101,6 +102,7 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const userData = userExists.rows[0];
+
 
   const token = generateToken({
     id: userData.id,
@@ -162,7 +164,6 @@ const logoutController = (req, res) => {
 };
 
 const authoriseController = (req, res) => {
-  console.log(req.user);
   res.status(200).json({
     data: req.user,
     message: "User Verification Successfull",

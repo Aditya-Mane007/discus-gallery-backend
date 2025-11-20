@@ -4,6 +4,7 @@ const { decryptPayload } = require("../utils/utils");
 const decryptionMiddleware = asyncHandler(async (req, res, next) => {
   if (!req.body) {
     next();
+    return;
   }
   const { request } = req.body;
 

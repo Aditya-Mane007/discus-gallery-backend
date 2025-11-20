@@ -45,8 +45,8 @@ const createUser = async (name, email, password) => {
 // check for user and return user password
 const getUserByEmail = async (email) => {
   const query = {
-    name: "check-if-user-exists",
-    text: "SELECT email, password FROM users WHERE email=$1",
+    name: "getUserByEmail",
+    text: "SELECT email, id, profile_photo, verified, password FROM users WHERE email=$1",
     values: [email],
   };
   const result = await pool.query(query);
