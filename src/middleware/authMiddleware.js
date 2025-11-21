@@ -29,10 +29,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   try {
     const decodedTokon = jwt.verify(token, process.env.JWT_SECRET);
 
-
     const user = await getUserById(decodedTokon?.id);
-
-
 
     if (user.rowCount === 0) {
       res.status(404);
@@ -42,6 +39,18 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     req.user = user.rows[0];
     next();
   } catch (error) {
+    res.clearCookie("token", {
+      httpOnly: true,
+      sameSite: "strict",
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    res.clearCookie("XSRF-TOKEN", {
+      httpOnly: false,
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
     res.status(500);
     throw new Error("Verification failed, please try again after sometime");
   }
