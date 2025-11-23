@@ -61,7 +61,17 @@ const loginSchema = Joi.object({
     }),
 });
 
+const otpVerificationSchema = Joi.object({
+  otp: Joi.string().min(6).max(6).required().messages({
+    "any.required": "otp cannot be empty",
+    "string.empty": "otp cannot be empty",
+    "string.min": "otp must be at least 6 characters",
+    "string.max": "otp must be at least 6 characters",
+  }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
+  otpVerificationSchema,
 };

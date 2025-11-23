@@ -1,4 +1,5 @@
 const dotenv = require("dotenv");
+const nodemailer = require("nodemailer");
 dotenv.config();
 const jwt = require("jsonwebtoken");
 const AES = require("crypto-js/aes");
@@ -71,6 +72,37 @@ const decryptPayload = (payload) => {
   }
 };
 
+const generateOTP = (length) => {
+  let otp = "";
+
+  for (let i = 0; i < length; i++) {
+    otp += Math.floor(Math.random() * 9);
+  }
+
+  return otp;
+};
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465, 
+  secure: true,
+  auth: {
+    user: process.env.GMAIL_APP_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
+
+const send = async (recipent, otp) => {
+  const info = await transporter.sendMail({
+    from: `"Discus Gallery" <${process.env.GMAIL_APP_USER}>`,
+    to: recipent,
+    subject: "User Identity Verifcation ",
+    text: `YOUR OTP : ${otp}`,
+  });
+
+  console.log("Message sent:", info.messageId);
+};
+
 module.exports = {
   generateToken,
   generateCSRFToken,
@@ -78,4 +110,6 @@ module.exports = {
   compareToken,
   encryptPayload,
   decryptPayload,
+  generateOTP,
+  send,
 };

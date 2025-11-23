@@ -1,5 +1,4 @@
 const { pool } = require("../config/db");
-const jwt = require("jsonwebtoken");
 
 const registerUserQuery = async () => {
   const result = await pool.query("SELCET * FROM users");
@@ -57,7 +56,55 @@ const getUserByEmail = async (email) => {
 const getUserById = async (id) => {
   const query = {
     name: "get-user-by-id",
-    text: "SELECT id, email, profile_photo, verified FROM users WHERE id=$1",
+    text: "SELECT id, email, profile_photo, verified, otp_attempts FROM users WHERE id=$1",
+    values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const generateOTPQuery = async (otp, id) => {
+  const query = {
+    name: "generate-otp",
+    text: "UPDATE users SET otp=$1 WHERE id=$2",
+    values: [otp, id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const otpAttemptsQuery = async (otpAttempt, id) => {
+  const query = {
+    name: "update-opt-attempts",
+    text: "UPDATE users SET otp_attempts=$1 WHERE id=$2",
+    values: [otpAttempt, id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const getOTPQuery = async (id) => {
+  const query = {
+    name: "get-otp-for-verification",
+    text: "SELECT otp FROM users WHERE id=$1",
+    values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const updateVerifiedStatusQuery = async (id) => {
+  const query = {
+    name: "update-verified-status",
+    text: "UPDATE users SET verified=TRUE WHERE id=$1",
     values: [id],
   };
 
@@ -72,4 +119,8 @@ module.exports = {
   createUser,
   getUserByEmail,
   getUserById,
+  generateOTPQuery,
+  otpAttemptsQuery,
+  getOTPQuery,
+  updateVerifiedStatusQuery,
 };

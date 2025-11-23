@@ -3,6 +3,10 @@ const {
   createUser,
   getUserByEmail,
   getUserById,
+  generateOTPQuery,
+  otpAttemptsQuery,
+  getOTPQuery,
+  updateVerifiedStatusQuery,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -12,8 +16,14 @@ const {
   generateToken,
   decryptPayload,
   encryptPayload,
+  generateOTP,
+  send,
 } = require("../../utils/utils");
-const { registerSchema, loginSchema } = require("../../schema/authSchema");
+const {
+  registerSchema,
+  loginSchema,
+  otpVerificationSchema,
+} = require("../../schema/authSchema");
 dotenv.config();
 
 // Register Controller
@@ -89,7 +99,7 @@ const loginController = asyncHandler(async (req, res) => {
   if (!userExists.rowCount) {
     res.status(404);
     throw new Error("User does not exists, please register");
-  } 
+  }
 
   const checkPassword = await bcrypt.compare(
     password,
@@ -102,7 +112,6 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const userData = userExists.rows[0];
-
 
   const token = generateToken({
     id: userData.id,
@@ -170,9 +179,65 @@ const authoriseController = (req, res) => {
   });
 };
 
+const generateOtpController = asyncHandler(async (req, res) => {
+  const user = req?.user;
+
+  if (user?.otp_attempts === 0) {
+    res.status(400);
+    throw new Error(
+      "You have reached the maximum of 3 OTP attempts. try again after 3 hours"
+    );
+  }
+
+  const otp = generateOTP(6);
+
+  await otpAttemptsQuery(user?.otp_attempts - 1, user?.id);
+
+  await generateOTPQuery(otp, user?.id);
+
+  await send(user?.email, otp);
+
+  res.status(200).json({
+    message: "OTP Generated Successfully",
+  });
+});
+
+const otpVerificationController = asyncHandler(async (req, res) => {
+  try {
+    await otpVerificationSchema.validateAsync(req.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
+
+  const user = req?.user;
+
+  const { otp } = req?.body;
+
+  const otpFromDb = await getOTPQuery(user?.id);
+
+  if (otpFromDb.rowCount < 1) {
+    res.status(400);
+    throw new Error("Error Verifying OTP");
+  }
+
+  if (Number(otp) !== Number(otpFromDb?.rows[0]?.otp)) {
+    res.status(400);
+    throw new Error("Invalid OTP, please enter correct otp");
+  }
+
+  await updateVerifiedStatusQuery(user?.id);
+
+  res.status(200).json({
+    message: "OTP verification successful",
+  });
+});
+
 module.exports = {
   registerController,
   loginController,
   logoutController,
   authoriseController,
+  generateOtpController,
+  otpVerificationController,
 };
