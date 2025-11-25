@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "startdb" : "bash scripts/adminerStart.sh",
-    "stopdb" : "bash scripts/adminerStop.sh",
+    "startdb": "bash scripts/adminerStart.sh",
+    "stopdb": "bash scripts/adminerStop.sh",
     "dev": "nodemon src/server.js"
   },
   "keywords": [],
@@ -16,15 +16,18 @@
     "colors": "^1.4.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
     "csurf": "^1.11.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "express-async-handler": "^1.2.0",
     "joi": "^18.0.1",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.10",
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.1.10"
   }
 }

@@ -2,17 +2,38 @@ const {
   checkIfUsersExists,
   createUser,
   getUserByEmail,
+  getUserById,
+  generateOTPQuery,
+  otpAttemptsQuery,
+  getOTPQuery,
+  updateVerifiedStatusQuery,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
-const { generateCSRFToken, generateToken } = require("../../utils/utils");
-const { regsiterSchema, loginSchema } = require("../../schema/authSchema");
+const {
+  generateCSRFToken,
+  generateToken,
+  decryptPayload,
+  encryptPayload,
+  generateOTP,
+  send,
+} = require("../../utils/utils");
+const {
+  registerSchema,
+  loginSchema,
+  otpVerificationSchema,
+} = require("../../schema/authSchema");
 dotenv.config();
 
 // Register Controller
 const registerController = asyncHandler(async (req, res) => {
-  await regsiterSchema.validateAsync(req.body);
+  try {
+    await registerSchema.validateAsync(req.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
 
   const { email, password, name } = req.body;
 
@@ -43,9 +64,8 @@ const registerController = asyncHandler(async (req, res) => {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    sameSite: "strict",
-    domain: "localhost",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
 
   const csrfToken = generateCSRFToken(token);
@@ -53,8 +73,8 @@ const registerController = asyncHandler(async (req, res) => {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
-    domain: "localhost",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
 
   res.status(201).json({
@@ -65,7 +85,12 @@ const registerController = asyncHandler(async (req, res) => {
 
 // Login controller
 const loginController = asyncHandler(async (req, res) => {
-  await loginSchema.validateAsync(req.body);
+  try {
+    await loginSchema.validateAsync(req.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
 
   const { email, password } = req.body;
 
@@ -120,6 +145,15 @@ const loginController = asyncHandler(async (req, res) => {
   });
 });
 
+// res.status(200).json({
+//   response: encryptPayload(
+//     JSON.stringify({
+//       accessToken: token,
+//       message: "Logged In Successfully",
+//     })
+//   ),
+// });
+
 // Logout Controller
 const logoutController = (req, res) => {
   res.clearCookie("token", {
@@ -138,8 +172,72 @@ const logoutController = (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
+const authoriseController = (req, res) => {
+  res.status(200).json({
+    data: req.user,
+    message: "User Verification Successfull",
+  });
+};
+
+const generateOtpController = asyncHandler(async (req, res) => {
+  const user = req?.user;
+
+  if (user?.otp_attempts === 0) {
+    res.status(400);
+    throw new Error(
+      "You have reached the maximum of 3 OTP attempts. try again after 3 hours"
+    );
+  }
+
+  const otp = generateOTP(6);
+
+  await otpAttemptsQuery(user?.otp_attempts - 1, user?.id);
+
+  await generateOTPQuery(otp, user?.id);
+
+  await send(user?.email, otp);
+
+  res.status(200).json({
+    message: "OTP Generated Successfully",
+  });
+});
+
+const otpVerificationController = asyncHandler(async (req, res) => {
+  try {
+    await otpVerificationSchema.validateAsync(req.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
+
+  const user = req?.user;
+
+  const { otp } = req?.body;
+
+  const otpFromDb = await getOTPQuery(user?.id);
+
+  if (otpFromDb.rowCount < 1) {
+    res.status(400);
+    throw new Error("Error Verifying OTP");
+  }
+
+  if (Number(otp) !== Number(otpFromDb?.rows[0]?.otp)) {
+    res.status(400);
+    throw new Error("Invalid OTP, please enter correct otp");
+  }
+
+  await updateVerifiedStatusQuery(user?.id);
+
+  res.status(200).json({
+    message: "OTP verification successful",
+  });
+});
+
 module.exports = {
   registerController,
   loginController,
   logoutController,
+  authoriseController,
+  generateOtpController,
+  otpVerificationController,
 };

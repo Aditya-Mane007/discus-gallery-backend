@@ -1,7 +1,10 @@
-const crypto = require("crypto");
 const dotenv = require("dotenv");
+const nodemailer = require("nodemailer");
 dotenv.config();
 const jwt = require("jsonwebtoken");
+const AES = require("crypto-js/aes");
+const ENC = require("crypto-js/enc-utf8");
+const crypto = require("crypto");
 
 // To compare csrf token
 const compareToken = (recievedToken, generatedToken) => {
@@ -44,9 +47,69 @@ const verifyToken = (jwtToken, receivedCSRFtoken) => {
   return compareToken(receivedCSRFtoken, hashedToken);
 };
 
+const encryptPayload = (payload) => {
+  try {
+    const encrytedData = AES.encrypt(
+      payload,
+      process.env.ENCRYPTION_KEY
+    ).toString();
+    return encrytedData;
+  } catch (error) {
+    throw new Error("Error : ", error);
+  }
+};
+
+const decryptPayload = (payload) => {
+  try {
+    const decryptedData = AES.decrypt(
+      payload,
+      process.env.ENCRYPTION_KEY
+    ).toString(ENC);
+
+    return JSON.parse(decryptedData);
+  } catch (error) {
+    throw new Error("Error : ", error);
+  }
+};
+
+const generateOTP = (length) => {
+  let otp = "";
+
+  for (let i = 0; i < length; i++) {
+    otp += Math.floor(Math.random() * 9);
+  }
+
+  return otp;
+};
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465, 
+  secure: true,
+  auth: {
+    user: process.env.GMAIL_APP_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
+
+const send = async (recipent, otp) => {
+  const info = await transporter.sendMail({
+    from: `"Discus Gallery" <${process.env.GMAIL_APP_USER}>`,
+    to: recipent,
+    subject: "User Identity Verifcation ",
+    text: `YOUR OTP : ${otp}`,
+  });
+
+  console.log("Message sent:", info.messageId);
+};
+
 module.exports = {
   generateToken,
   generateCSRFToken,
   verifyToken,
   compareToken,
+  encryptPayload,
+  decryptPayload,
+  generateOTP,
+  send,
 };

@@ -7,6 +7,8 @@ dotenv.config();
 const errorHandler = require("./middleware/errorMiddleware.js");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
+const decryptionMiddleware = require("./middleware/decryptionMiddlware.js");
+const encryptionMiddleware = require("./middleware/encryptionMiddleware.js");
 
 const PORT = process.env.PORT || 5000;
 
@@ -26,16 +28,12 @@ app.use(
   })
 );
 
-// Routes
+app.use("/api", decryptionMiddleware);
+
+app.use("/api", encryptionMiddleware);
+
 app.use("/api", require("./routes/routes.js"));
 
-// Testing postgres connection
-// app.get("/", async (req, res) => {
-//   const result = await pool.query("SELECT current_database()");
-//   res.send(`The database name is : ${result.rows[0].current_database}`);
-// });
-
-// Error Handling Middleware
 app.use(errorHandler);
 
 app.listen(PORT, () => {
