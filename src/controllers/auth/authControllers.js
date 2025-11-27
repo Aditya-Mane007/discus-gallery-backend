@@ -7,6 +7,7 @@ const {
   otpAttemptsQuery,
   getOTPQuery,
   updateVerifiedStatusQuery,
+  generateOTPAndUpdateOTPAttempts,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -182,6 +183,8 @@ const authoriseController = (req, res) => {
 const generateOtpController = asyncHandler(async (req, res) => {
   const user = req?.user;
 
+  console.log(user);
+
   if (user?.otp_attempts === 0) {
     res.status(400);
     throw new Error(
@@ -191,13 +194,17 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   const otp = generateOTP(6);
 
-  await otpAttemptsQuery(user?.otp_attempts - 1, user?.id);
+  const userInfo = await generateOTPAndUpdateOTPAttempts(otp, user?.id);
 
-  await generateOTPQuery(otp, user?.id);
+  if (!userInfo?.rowCount) {
+    res.status(400);
+    throw new Error("Error Generating OTP");
+  }
 
-  await send(user?.email, otp);
+  // await send(user?.email, otp);
 
   res.status(200).json({
+    otp_attempts: userInfo?.rows[0]?.otp_attempts,
     message: "OTP Generated Successfully",
   });
 });

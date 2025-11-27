@@ -113,6 +113,17 @@ const updateVerifiedStatusQuery = async (id) => {
   return result;
 };
 
+const generateOTPAndUpdateOTPAttempts = async (otp, id) => {
+  const query = {
+    name: "generate-otp-and-update-otp-attempts",
+    text: "UPDATE users SET otp=$1, otp_attempts=otp_attempts-1 WHERE id=$2 RETURNING otp_attempts",
+    values: [otp, id],
+  };
+  const result = await pool.query(query);
+
+  return result;
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
@@ -123,4 +134,5 @@ module.exports = {
   otpAttemptsQuery,
   getOTPQuery,
   updateVerifiedStatusQuery,
+  generateOTPAndUpdateOTPAttempts,
 };
