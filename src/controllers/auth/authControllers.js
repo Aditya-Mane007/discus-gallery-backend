@@ -183,8 +183,6 @@ const authoriseController = (req, res) => {
 const generateOtpController = asyncHandler(async (req, res) => {
   const user = req?.user;
 
-  console.log(user);
-
   if (user?.otp_attempts === 0) {
     res.status(400);
     throw new Error(

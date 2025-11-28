@@ -5,5 +5,7 @@ CREATE TABLE IF NOT EXISTS  users(
     password VARCHAR(255) NOT NULL,
     profile_photo VARCHAR(255),
     verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW()    
+    created_at TIMESTAMP DEFAULT NOW()
+    otp_attempts INTEGER DEFAULT 3
+    otp INTEGER  
 )
