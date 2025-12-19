@@ -20,7 +20,7 @@ const checkIfUsersExists = async (email) => {
 const createUser = async (name, email, password) => {
   const query = {
     name: "create-user",
-    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3) RETURNING *",
+    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3) RETURNING id, email, profile_photo, verified, otp_attempts",
     values: [name, email, password],
   };
 
@@ -45,7 +45,7 @@ const createUser = async (name, email, password) => {
 const getUserByEmail = async (email) => {
   const query = {
     name: "getUserByEmail",
-    text: "SELECT email, id, profile_photo, verified, password FROM users WHERE email=$1",
+    text: "SELECT id, email, profile_photo, password, verified, otp_attempts FROM users WHERE email=$1",
     values: [email],
   };
   const result = await pool.query(query);
@@ -92,7 +92,7 @@ const otpAttemptsQuery = async (otpAttempt, id) => {
 const getOTPQuery = async (id) => {
   const query = {
     name: "get-otp-for-verification",
-    text: "SELECT otp FROM users WHERE id=$1",
+    text: "SELECT otp otp_created_at FROM users WHERE id=$1",
     values: [id],
   };
 
@@ -113,12 +113,24 @@ const updateVerifiedStatusQuery = async (id) => {
   return result;
 };
 
-const generateOTPAndUpdateOTPAttempts = async (otp, id) => {
+const generateOTPAndUpdateOTPAttempts = async (otp, id, otp_creation_time) => {
   const query = {
     name: "generate-otp-and-update-otp-attempts",
-    text: "UPDATE users SET otp=$1, otp_attempts=otp_attempts-1 WHERE id=$2 RETURNING otp_attempts",
-    values: [otp, id],
+    text: "UPDATE users SET otp=$1, otp_attempts=otp_attempts-1 otp_created_at=$3 WHERE id=$2 RETURNING otp_attempts otp_created_at",
+    values: [otp, id, otp_creation_time],
   };
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const updateUserInfo = async (id, name, profilePhoto) => {
+  const query = {
+    name: "update-user-info",
+    text: "UPDATE users SET name=COALESCE($2,name) profile_photo=COALESCE($3,profile_photo) WHERE id=$1 RETURNING name profile_photo",
+    values: [id, name, profilePhoto],
+  };
+
   const result = await pool.query(query);
 
   return result;
@@ -135,4 +147,5 @@ module.exports = {
   getOTPQuery,
   updateVerifiedStatusQuery,
   generateOTPAndUpdateOTPAttempts,
+  updateUserInfo,
 };

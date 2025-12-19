@@ -70,8 +70,36 @@ const otpVerificationSchema = Joi.object({
   }),
 });
 
+const updateUserInfoSchema = Joi.object({
+  name: Joi.string().min(2).max(100).optional(),
+  profile_photo: Joi.string().optional(),
+});
+
+const resetPasswordSchema = Joi.object({
+  password: Joi.string()
+    .pattern(
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/
+    )
+    .min(5)
+    .max(15)
+    .required()
+    .messages({
+      "string.base": "Password must be a string",
+      "string.min": "Password must be at least 5 characters",
+      "string.max": "Password must be at most 15 characters",
+      "any.required": "Password cannot be empty",
+      "string.empty": "Password cannot be empty",
+      "string.pattern.base":
+        "Password must contain at least one number and one special character",
+      "string.pattern.name":
+        "Password must contain at least one number and one special character",
+    }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   otpVerificationSchema,
+  updateUserInfoSchema,
+  resetPasswordSchema,
 };

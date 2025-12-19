@@ -8,6 +8,7 @@ const {
   getOTPQuery,
   updateVerifiedStatusQuery,
   generateOTPAndUpdateOTPAttempts,
+  updateUserInfo,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -24,6 +25,8 @@ const {
   registerSchema,
   loginSchema,
   otpVerificationSchema,
+  updateUserInfoSchema,
+  resetPasswordSchema,
 } = require("../../schema/authSchema");
 dotenv.config();
 
@@ -80,6 +83,7 @@ const registerController = asyncHandler(async (req, res) => {
 
   res.status(201).json({
     accessToken: token,
+    user: user,
     message: "User Registered Successfully",
   });
 });
@@ -97,7 +101,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const userExists = await getUserByEmail(email);
 
-  if (!userExists.rowCount) {
+  if (userExists.rowCount < 1) {
     res.status(404);
     throw new Error("User does not exists, please register");
   }
@@ -112,13 +116,13 @@ const loginController = asyncHandler(async (req, res) => {
     throw new Error("Invalid credentials");
   }
 
-  const userData = userExists.rows[0];
+  const user = userExists.rows[0];
 
   const token = generateToken({
-    id: userData.id,
-    email: userData.email,
-    profile_photo: userData.profile_photo,
-    verified: userData.verified,
+    id: user?.id,
+    email: user?.email,
+    profile_photo: user?.profile_photo,
+    verified: user?.verified,
   });
 
   res.cookie("token", token, {
@@ -140,23 +144,22 @@ const loginController = asyncHandler(async (req, res) => {
     secure: process.env.NODE_ENV === "production",
   });
 
+  const userInfo = user;
+  delete userInfo.password;
   res.status(200).json({
     accessToken: token,
+    user: userInfo,
     message: "Logged In Successfully",
   });
 });
 
-// res.status(200).json({
-//   response: encryptPayload(
-//     JSON.stringify({
-//       accessToken: token,
-//       message: "Logged In Successfully",
-//     })
-//   ),
-// });
-
 // Logout Controller
 const logoutController = (req, res) => {
+  const { user } = req?.user;
+  if (!user) {
+    res.status(401);
+    throw new Error("User is not authorised, please login");
+  }
   res.clearCookie("token", {
     httpOnly: true,
     sameSite: "strict",
@@ -173,15 +176,14 @@ const logoutController = (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
-const authoriseController = (req, res) => {
-  res.status(200).json({
-    data: req.user,
-    message: "User Verification Successfull",
-  });
-};
-
+// Generate OTP Controller
 const generateOtpController = asyncHandler(async (req, res) => {
   const user = req?.user;
+
+  if (!user) {
+    res.status(401);
+    throw new Error("User is not authorised, please login");
+  }
 
   if (user?.otp_attempts === 0) {
     res.status(400);
@@ -191,22 +193,29 @@ const generateOtpController = asyncHandler(async (req, res) => {
   }
 
   const otp = generateOTP(6);
+  const otpCreationTime = new Date();
 
-  const userInfo = await generateOTPAndUpdateOTPAttempts(otp, user?.id);
+  const userInfo = await generateOTPAndUpdateOTPAttempts(
+    otp,
+    user?.id,
+    otpCreationTime
+  );
 
   if (!userInfo?.rowCount) {
     res.status(400);
     throw new Error("Error Generating OTP");
   }
 
-  // await send(user?.email, otp);
+  await send(user?.email, otp);
 
   res.status(200).json({
     otp_attempts: userInfo?.rows[0]?.otp_attempts,
+    otp_creation_time: userInfo?.rows[0]?.otp_created_at,
     message: "OTP Generated Successfully",
   });
 });
 
+// Verify OTP Controller
 const otpVerificationController = asyncHandler(async (req, res) => {
   try {
     await otpVerificationSchema.validateAsync(req.body);
@@ -217,16 +226,31 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const user = req?.user;
 
+  if (!user) {
+    res.status(401);
+    throw new Error("User is not authorised, please login");
+  }
+
   const { otp } = req?.body;
 
   const otpFromDb = await getOTPQuery(user?.id);
 
   if (otpFromDb.rowCount < 1) {
     res.status(400);
-    throw new Error("Error Verifying OTP");
+    throw new Error("OTP verification failed, kindly generate otp");
   }
 
-  if (Number(otp) !== Number(otpFromDb?.rows[0]?.otp)) {
+  const dbOTP = otpFromDb?.rows[0]?.otp;
+  const otpCreationTIme = otpFromDb?.rows[0]?.otp_created_at;
+
+  const minDiff = (new Date() - new Date(otpCreationTIme)) / (1000 * 60);
+
+  if (minDiff > 10) {
+    res.status(400);
+    throw new Error("OTP is expired");
+  }
+
+  if (Number(otp) !== Number(dbOTP)) {
     res.status(400);
     throw new Error("Invalid OTP, please enter correct otp");
   }
@@ -238,6 +262,77 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   });
 });
 
+// Get User Details Controller
+const getUserController = asyncHandler(async (req, res) => {
+  const user = req?.user;
+
+  if (!user) {
+    res.status(401);
+    throw new Error("User is not authorised, please login");
+  }
+
+  const userInfo = await getUserById(user?.id);
+
+  if (!userInfo) {
+    res.status(400);
+    throw new Error("Facing error to get user info");
+  }
+
+  res.status(200).json({
+    userInfo: userInfo?.rows[0],
+    message: "User info fetched sussfully",
+  });
+});
+
+// Update User Details Controller
+const updateUserController = asyncHandler(async (req, res) => {
+  const user = req?.user;
+
+  if (!user) {
+    res.status(401);
+    throw new Error("User is not authorised, please login");
+  }
+
+  try {
+    await updateUserInfoSchema.validateAsync(req?.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
+
+  const { name, profile_photo } = req?.body;
+
+  const userInfo = await updateUserInfo(user?.id, name, profile_photo);
+
+  if (!userInfo?.rowCount) {
+    res.status(400);
+    throw new Error(
+      "Facing error while updating user infomation, please try after sometime"
+    );
+  }
+
+  res.status(200).json({
+    message: "User info updated successfully",
+  });
+});
+
+// Reset Password Controller
+const resetPasswordController = asyncHandler(async (req, res) => {
+  const user = req?.user;
+
+  if (!user) {
+    res.status(401);
+    throw new Error("User is not authorised, please login");
+  }
+
+  try {
+    await resetPasswordSchema.validateAsync(req?.body);
+  } catch (error) {
+    res.status(400);
+    throw new Error(error?.details[0]?.message);
+  }
+});
+
 module.exports = {
   registerController,
   loginController,
@@ -245,4 +340,6 @@ module.exports = {
   authoriseController,
   generateOtpController,
   otpVerificationController,
+  getUserController,
+  updateUserController,
 };

@@ -7,5 +7,6 @@ CREATE TABLE IF NOT EXISTS  users(
     verified BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW()
     otp_attempts INTEGER DEFAULT 3
-    otp INTEGER  
+    otp INTEGER,
+    otp_created_at TIMESTAMP
 )
