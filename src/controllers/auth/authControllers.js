@@ -176,6 +176,14 @@ const logoutController = (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
+// Get User
+const authoriseController = (req, res) => {
+  res.status(200).json({
+    data: req.user,
+    message: "User Verification Successfull",
+  });
+};
+
 // Generate OTP Controller
 const generateOtpController = asyncHandler(async (req, res) => {
   const user = req?.user;
@@ -317,21 +325,11 @@ const updateUserController = asyncHandler(async (req, res) => {
 });
 
 // Reset Password Controller
-const resetPasswordController = asyncHandler(async (req, res) => {
-  const user = req?.user;
-
-  if (!user) {
-    res.status(401);
-    throw new Error("User is not authorised, please login");
-  }
-
-  try {
-    await resetPasswordSchema.validateAsync(req?.body);
-  } catch (error) {
-    res.status(400);
-    throw new Error(error?.details[0]?.message);
-  }
-});
+// Options :
+// Option 1 : Send Reset Password link and ask for the secret word, asked during the registration.
+// Option 2 : Send Email to Recovery email.
+// Option 3 : Send OTP on phone number or email address(registered email address)
+// Option 4 : Add All the above
 
 module.exports = {
   registerController,
