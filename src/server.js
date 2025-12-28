@@ -10,7 +10,6 @@ const cookieParser = require("cookie-parser");
 const decryptionMiddleware = require("./middleware/decryptionMiddlware.js");
 const encryptionMiddleware = require("./middleware/encryptionMiddleware.js");
 
-
 const PORT = process.env.PORT || 5000;
 
 const app = express();

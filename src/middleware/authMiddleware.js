@@ -7,6 +7,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   let csrf = req?.cookies?.["XSRF-TOKEN"];
   let token = req?.cookies?.token;
 
+
+
   if (!csrf) {
     res.status(400);
     throw new Error("Invalid request: csrf token required.");
@@ -30,6 +32,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     const decodedTokon = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await getUserById(decodedTokon?.id);
+
+
 
     if (user.rowCount === 0) {
       res.status(404);

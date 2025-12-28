@@ -12,6 +12,12 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
+router.get("/routeInfo", (req, res) => {
+  res.status(200).json({
+    message: "This is Auth Route",
+  });
+});
+
 router.post("/register", registerController);
 router.post("/login", loginController);
 router.get("/logout", authMiddleware, logoutController);
