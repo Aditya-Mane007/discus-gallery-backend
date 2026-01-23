@@ -9,6 +9,7 @@ const {
   updateVerifiedStatusQuery,
   generateOTPAndUpdateOTPAttempts,
   updateUserInfo,
+  getOtpData,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -106,7 +107,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const checkPassword = await bcrypt.compare(
     password,
-    userExists.rows[0].password
+    userExists.rows[0].password,
   );
 
   if (!checkPassword) {
@@ -114,6 +115,7 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const user = userExists.rows[0];
+  
 
   const token = generateToken({
     id: user?.id,
@@ -203,7 +205,7 @@ const generateOtpController = asyncHandler(async (req, res) => {
   const userInfo = await generateOTPAndUpdateOTPAttempts(
     otp,
     user?.id,
-    otpCreationTime
+    otpCreationTime,
   );
 
   if (!userInfo?.rowCount) {
@@ -313,6 +315,26 @@ const updateUserController = asyncHandler(async (req, res) => {
   });
 });
 
+// Get OTP Status
+const getOtpStatusController = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  if (!user) {
+    res.status(400).json({ message: "User is not authorised, please login" });
+  }
+
+  const otpData = await getOtpData(user?.id);
+
+  if (!otpData) {
+    res.status(400).json({ message: "Unable to fetch otp data" });
+  }
+
+  res.status(200).json({
+    data: otpData?.rows[0],
+    message: "OTP Data",
+  });
+});
+
 // Reset Password Controller
 // Options :
 // Option 1 : Send Reset Password link and ask for the secret word, asked during the registration.
@@ -329,4 +351,5 @@ module.exports = {
   otpVerificationController,
   getUserController,
   updateUserController,
+  getOtpStatusController,
 };

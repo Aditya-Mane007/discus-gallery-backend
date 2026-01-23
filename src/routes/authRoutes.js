@@ -7,6 +7,7 @@ const {
   authoriseController,
   generateOtpController,
   otpVerificationController,
+  getOtpStatusController,
 } = require("../controllers/auth/authControllers");
 const authMiddleware = require("../middleware/authMiddleware");
 
@@ -18,11 +19,15 @@ router.get("/routeInfo", (req, res) => {
   });
 });
 
+// AUTH
 router.post("/register", registerController);
 router.post("/login", loginController);
 router.get("/logout", authMiddleware, logoutController);
 router.get("/getuser", authMiddleware, authoriseController);
+
+// OTP
 router.get("/generateOTP", authMiddleware, generateOtpController);
 router.post("/verifyOTP", authMiddleware, otpVerificationController);
+router.get("/getOtpStatus", authMiddleware, getOtpStatusController);
 
 module.exports = router;

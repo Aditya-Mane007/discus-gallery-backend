@@ -136,6 +136,18 @@ const updateUserInfo = async (id, name, profilePhoto) => {
   return result;
 };
 
+const getOtpData = async (id) => {
+  const query = {
+    name: "get-otp-data",
+    text: "SELECT otp_created_at, otp_attempts FROM users WHERE id=$1",
+    values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
@@ -148,4 +160,5 @@ module.exports = {
   updateVerifiedStatusQuery,
   generateOTPAndUpdateOTPAttempts,
   updateUserInfo,
+  getOtpData,
 };
