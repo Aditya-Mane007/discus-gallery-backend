@@ -92,7 +92,7 @@ const otpAttemptsQuery = async (otpAttempt, id) => {
 const getOTPQuery = async (id) => {
   const query = {
     name: "get-otp-for-verification",
-    text: "SELECT otp otp_created_at FROM users WHERE id=$1",
+    text: "SELECT otp, otp_created_at FROM users WHERE id=$1",
     values: [id],
   };
 
@@ -116,7 +116,7 @@ const updateVerifiedStatusQuery = async (id) => {
 const generateOTPAndUpdateOTPAttempts = async (otp, id, otp_creation_time) => {
   const query = {
     name: "generate-otp-and-update-otp-attempts",
-    text: "UPDATE users SET otp=$1, otp_attempts=otp_attempts-1 otp_created_at=$3 WHERE id=$2 RETURNING otp_attempts otp_created_at",
+    text: "UPDATE users SET otp = $1, otp_attempts = otp_attempts - 1, otp_created_at = $3 WHERE id = $2 RETURNING otp_attempts, otp_created_at",
     values: [otp, id, otp_creation_time],
   };
   const result = await pool.query(query);
@@ -139,7 +139,7 @@ const updateUserInfo = async (id, name, profilePhoto) => {
 const getOtpData = async (id) => {
   const query = {
     name: "get-otp-data",
-    text: "SELECT otp_created_at, otp_attempts FROM users WHERE id=$1",
+    text: "SELECT otp_created_at, otp_attempts, verified FROM users WHERE id=$1",
     values: [id],
   };
 

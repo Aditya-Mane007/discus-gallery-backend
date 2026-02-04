@@ -51,7 +51,7 @@ const encryptPayload = (payload) => {
   try {
     const encrytedData = AES.encrypt(
       payload,
-      process.env.ENCRYPTION_KEY
+      process.env.ENCRYPTION_KEY,
     ).toString();
     return encrytedData;
   } catch (error) {
@@ -63,7 +63,7 @@ const decryptPayload = (payload) => {
   try {
     const decryptedData = AES.decrypt(
       payload,
-      process.env.ENCRYPTION_KEY
+      process.env.ENCRYPTION_KEY,
     ).toString(ENC);
 
     return JSON.parse(decryptedData);

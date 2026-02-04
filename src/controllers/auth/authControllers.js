@@ -115,7 +115,6 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const user = userExists.rows[0];
-  
 
   const token = generateToken({
     id: user?.id,
@@ -156,7 +155,6 @@ const loginController = asyncHandler(async (req, res) => {
 const logoutController = (req, res) => {
   const user = req?.user;
 
-  console.log(user);
   if (!user) {
     res.status(401).json({ message: "User is not authorised" });
   }
@@ -192,6 +190,7 @@ const generateOtpController = asyncHandler(async (req, res) => {
     res.status(401).json({ message: "User is not authorised, please login" });
   }
 
+
   if (user?.otp_attempts === 0) {
     res.status(400).json({
       message:
@@ -212,12 +211,17 @@ const generateOtpController = asyncHandler(async (req, res) => {
     res.status(400).json({ message: "Error Generating OTP" });
   }
 
-  await send(user?.email, otp);
+  // await send(user?.email, otp);
 
-  res.status(200).json({
+  const data = {
     otp_attempts: userInfo?.rows[0]?.otp_attempts,
     otp_creation_time: userInfo?.rows[0]?.otp_created_at,
-    message: "OTP Generated Successfully",
+    screen: "otp",
+  };
+
+  res.status(200).json({
+    data,
+    message: "OTP Sent Successfully",
   });
 });
 
@@ -237,6 +241,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const { otp } = req?.body;
 
+
   const otpFromDb = await getOTPQuery(user?.id);
 
   if (otpFromDb.rowCount < 1) {
@@ -245,10 +250,12 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     });
   }
 
+
   const dbOTP = otpFromDb?.rows[0]?.otp;
   const otpCreationTIme = otpFromDb?.rows[0]?.otp_created_at;
 
   const minDiff = (new Date() - new Date(otpCreationTIme)) / (1000 * 60);
+
 
   if (minDiff > 10) {
     res.status(400).json({ message: "OTP is expired" });
@@ -319,6 +326,9 @@ const updateUserController = asyncHandler(async (req, res) => {
 const getOtpStatusController = asyncHandler(async (req, res) => {
   const user = req.user;
 
+  let screenShow;
+  let message;
+
   if (!user) {
     res.status(400).json({ message: "User is not authorised, please login" });
   }
@@ -329,8 +339,56 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
     res.status(400).json({ message: "Unable to fetch otp data" });
   }
 
+
+  if (otpData?.rows[0]?.verified) {
+    const data = {
+      screen: "verified",
+      message: "User is Verified",
+    };
+    res.status(200).json({
+      data,
+      message: "OTP DATA",
+    });
+  }
+
+  const screenStatus = otpData?.rows[0];
+
+  const createdAt = screenStatus.otp_created_at
+    ? new Date(screenStatus.otp_created_at).getTime() / (1000 * 60)
+    : null;
+  const currentTime = new Date().getTime() / (1000 * 60);
+
+  const timeLeft =
+    createdAt === null ? null : Math.floor(currentTime - createdAt);
+
+  // 2026-02-02 22:23:36
+
+  switch (true) {
+    case timeLeft === null:
+      screenShow = "email";
+      message = "";
+      break;
+    case timeLeft <= 5:
+      screenShow = "otp";
+      message = "";
+      break;
+    case timeLeft > 5:
+      screenShow = "otp";
+      message = "OTP is expired, please generate a new one";
+      break;
+    default:
+      screenShow = "email";
+      message = "";
+  }
+
+  const data = {
+    ...otpData?.rows[0],
+    screen: screenShow,
+    error_message: message,
+  };
+
   res.status(200).json({
-    data: otpData?.rows[0],
+    data,
     message: "OTP Data",
   });
 });
