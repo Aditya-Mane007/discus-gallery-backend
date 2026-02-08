@@ -3,13 +3,17 @@ const { pool } = require("../../config/db");
 const createUserTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS  users(
-    id SERIAL NOT NULL PRIMARY KEY,
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     profile_photo VARCHAR(255),
     verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW()    
+    created_at TIMESTAMP DEFAULT NOW(),
+    otp_attempts INTEGER DEFAULT 3,
+    otp INTEGER,
+    otp_created_at TIMESTAMP
+    
 )
     `;
 
@@ -35,5 +39,5 @@ const updateUsersTable = async () => {
   }
 };
 
-// createUserTable();
+createUserTable();
 // updateUsersTable();

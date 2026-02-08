@@ -268,6 +268,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   await updateVerifiedStatusQuery(user?.id);
 
   res.status(200).json({
+    screen: "verified",
     message: "OTP verification successful",
   });
 });
