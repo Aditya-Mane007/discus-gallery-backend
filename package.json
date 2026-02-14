@@ -6,8 +6,8 @@
     "startdb": "bash scripts/adminerStart.sh",
     "stopdb": "bash scripts/adminerStop.sh",
     "dev": "nodemon src/server.js",
-    "postgres-start":"docker compose up -d",
-    "postgres-stop":"docker compose down"
+    "db-start":"docker compose up -d",
+    "db-stop":"docker compose down"
 
   },
   "keywords": [],
