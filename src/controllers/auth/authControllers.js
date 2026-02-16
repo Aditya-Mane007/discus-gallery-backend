@@ -29,6 +29,7 @@ const {
   updateUserInfoSchema,
   resetPasswordSchema,
 } = require("../../schema/authSchema");
+const redisClient = require("../../services/redisClient");
 dotenv.config();
 
 // Register Controller
@@ -190,7 +191,24 @@ const generateOtpController = asyncHandler(async (req, res) => {
     res.status(401).json({ message: "User is not authorised, please login" });
   }
 
+  const result = await redisClient.get(`otp_attempts_exhausted_${user?.id}`);
+
+  if (result == "true") {
+    res.status(400).json({
+      message:
+        "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
+    });
+    return;
+  }
+
   if (user?.otp_attempts <= 0) {
+    await redisClient.set(
+      `otp_attempts_exhausted_${user?.id}`,
+      "true",
+      "NX",
+      "EX",
+      60,
+    );
     res.status(400).json({
       message:
         "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
