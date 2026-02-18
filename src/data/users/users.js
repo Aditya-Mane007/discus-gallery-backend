@@ -10,10 +10,9 @@ const createUserTable = async () => {
     profile_photo VARCHAR(255),
     verified BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT NOW(),
-    otp_attempts INTEGER DEFAULT 3,
     otp INTEGER,
     otp_created_at TIMESTAMP
-    
+    otp_expires_at TIMESTAMP
 )
     `;
 
@@ -27,8 +26,7 @@ const createUserTable = async () => {
 
 const updateUsersTable = async () => {
   const queryText = `
-   ALTER TABLE IF EXISTS users
-   ALTER COLUMN id SERIAL NOT NULL AUTO_INCREMENT PRIMARY KEY
+   ALTER TABLE IF EXISTS users DROP COLUMN otp_attempts;
     `;
 
   try {
@@ -39,5 +37,5 @@ const updateUsersTable = async () => {
   }
 };
 
-createUserTable();
-// updateUsersTable();
+// createUserTable();
+updateUsersTable();

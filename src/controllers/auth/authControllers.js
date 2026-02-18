@@ -4,12 +4,12 @@ const {
   getUserByEmail,
   getUserById,
   generateOTPQuery,
-  otpAttemptsQuery,
   getOTPQuery,
   updateVerifiedStatusQuery,
   generateOTPAndUpdateOTPAttempts,
   updateUserInfo,
   getOtpData,
+  otpVerificationQuery,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -30,6 +30,7 @@ const {
   resetPasswordSchema,
 } = require("../../schema/authSchema");
 const redisClient = require("../../services/redisClient");
+const { OTP_EXPIRY_TIME } = require("../../utils/constant");
 dotenv.config();
 
 // Register Controller
@@ -191,49 +192,46 @@ const generateOtpController = asyncHandler(async (req, res) => {
     res.status(401).json({ message: "User is not authorised, please login" });
   }
 
-  const result = await redisClient.get(`otp_attempts_exhausted_${user?.id}`);
+  let otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
 
-  if (result == "true") {
-    res.status(400).json({
-      message:
-        "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
-    });
-    return;
-  }
-
-  if (user?.otp_attempts <= 0) {
-    await redisClient.set(
-      `otp_attempts_exhausted_${user?.id}`,
-      "true",
-      "NX",
+  if (otpAttempts) {
+    if (Number(otpAttempts) === 0) {
+      res.status(400).json({
+        message:
+          "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
+      });
+      return;
+    } else {
+      await redisClient.decrby(`otp_attempts:${user?.id}`, 1);
+    }
+  } else {
+    otpAttempts = await redisClient.set(
+      `otp_attempts:${user?.id}`,
+      2,
+      "XX",
       "EX",
-      60,
+      60 * 60,
     );
-    res.status(400).json({
-      message:
-        "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
-    });
-
-    return;
+    await redisClient.expire(`otp_verification_attempts:${user?.id}`, 0, "NX");
   }
 
   const otp = generateOTP(6);
   const otpCreationTime = new Date();
+  const otpExpiryTime = new Date() + OTP_EXPIRY_TIME;
 
-  const userInfo = await generateOTPAndUpdateOTPAttempts(
+  const userInfo = await generateOTPQuery(
     otp,
     user?.id,
     otpCreationTime,
+    otpExpiryTime,
   );
 
   if (!userInfo?.rowCount) {
     res.status(400).json({ message: "Error Generating OTP" });
   }
 
-  // await send(user?.email, otp);
-
   const data = {
-    otp_attempts: userInfo?.rows[0]?.otp_attempts,
+    otp_attempts: otpAttempts,
     otp_created_at: userInfo?.rows[0]?.otp_created_at,
     screen: "otp",
   };
@@ -258,7 +256,33 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     res.status(400).json({ message: "User is not authorised, please login" });
   }
 
+  const otpVerificationAttempts = await redisClient.get(
+    `otp_verification_attempts:${user?.id}`,
+  );
+
+  if (otpVerificationAttempts) {
+    if (Number(otpVerificationAttempts) === 0) {
+      res.status(400).json({
+        message: "Too many attempts, please generate new otp",
+      });
+      return;
+    } else {
+      await redisClient.decrby(`otp_verification_attempts:${user?.id}`, 1);
+    }
+  } else {
+    await redisClient.set(
+      `otp_verification_attempts:${user?.id}`,
+      2,
+      "XX",
+      "EX",
+      60 * 5,
+    );
+  }
+
   const { otp } = req?.body;
+
+  // For updating veified status by checking expiration time and otp in single query
+  // const otpVerification = await otpVerificationQuery(user?.id, otp);
 
   const otpFromDb = await getOTPQuery(user?.id);
 
@@ -269,17 +293,18 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   }
 
   const dbOTP = otpFromDb?.rows[0]?.otp;
-  const otpCreationTIme = otpFromDb?.rows[0]?.otp_created_at;
+  const otpCreationTime = new Date();
+  const otpExpirationTime = otpFromDb?.rows[0]?.otp_expires_at;
 
-  const minDiff = (new Date() - new Date(otpCreationTIme)) / (1000 * 60);
+  const minDiff =
+    otpCreationTime.getTime() > new Date(otpExpirationTime).getTime();
 
-  if (minDiff > 2) {
-    res.status(400).json({ message: "OTP is expired" });
+  if (minDiff) {
+    return res.status(400).json({ message: "OTP is expired" });
   }
 
   if (Number(otp) !== Number(dbOTP)) {
-    res.status(400).json({ message: "Invalid OTP" });
-    return;
+    return res.status(400).json({ message: "Invalid OTP" });
   }
 
   await updateVerifiedStatusQuery(user?.id);

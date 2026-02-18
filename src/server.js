@@ -25,12 +25,12 @@ app.use(
   cors({
     origin: "http://localhost:3000", // your frontend origin
     credentials: true, // enable cookies to be sent cross-origin
-  })
+  }),
 );
 
-app.use("/api", decryptionMiddleware);
+// app.use("/api", decryptionMiddleware);
 
-app.use("/api", encryptionMiddleware);
+// app.use("/api", encryptionMiddleware);
 
 app.use("/api", require("./routes/routes.js"));
 
@@ -38,6 +38,6 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(
-    `Server is running on port ${process.env.DOMAIN}${PORT}`.blue.underline
+    `Server is running on port ${process.env.DOMAIN}${PORT}`.blue.underline,
   );
 });

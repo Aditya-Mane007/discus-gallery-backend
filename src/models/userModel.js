@@ -20,7 +20,7 @@ const checkIfUsersExists = async (email) => {
 const createUser = async (name, email, password) => {
   const query = {
     name: "create-user",
-    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3) RETURNING id, email, profile_photo, verified, otp_attempts",
+    text: "INSERT INTO users(name,email,password) VALUES($1,$2,$3) RETURNING id, email, profile_photo, verified",
     values: [name, email, password],
   };
 
@@ -45,7 +45,7 @@ const createUser = async (name, email, password) => {
 const getUserByEmail = async (email) => {
   const query = {
     name: "getUserByEmail",
-    text: "SELECT id, email, profile_photo, password, verified, otp_attempts FROM users WHERE email=$1",
+    text: "SELECT id, email, profile_photo, password, verified, FROM users WHERE email=$1",
     values: [email],
   };
   const result = await pool.query(query);
@@ -56,32 +56,8 @@ const getUserByEmail = async (email) => {
 const getUserById = async (id) => {
   const query = {
     name: "get-user-by-id",
-    text: "SELECT id, email, profile_photo, verified, otp_attempts FROM users WHERE id=$1",
+    text: "SELECT id, email, profile_photo, verified FROM users WHERE id=$1",
     values: [id],
-  };
-
-  const result = await pool.query(query);
-
-  return result;
-};
-
-const generateOTPQuery = async (otp, id) => {
-  const query = {
-    name: "generate-otp",
-    text: "UPDATE users SET otp=$1 WHERE id=$2",
-    values: [otp, id],
-  };
-
-  const result = await pool.query(query);
-
-  return result;
-};
-
-const otpAttemptsQuery = async (otpAttempt, id) => {
-  const query = {
-    name: "update-opt-attempts",
-    text: "UPDATE users SET otp_attempts=$1 WHERE id=$2",
-    values: [otpAttempt, id],
   };
 
   const result = await pool.query(query);
@@ -92,8 +68,20 @@ const otpAttemptsQuery = async (otpAttempt, id) => {
 const getOTPQuery = async (id) => {
   const query = {
     name: "get-otp-for-verification",
-    text: "SELECT otp, otp_created_at FROM users WHERE id=$1",
+    text: "SELECT otp, otp_created_at, otp_expires_at FROM users WHERE id=$1",
     values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const otpVerificationQuery = async (id, otp) => {
+  const query = {
+    name: "otp-verification",
+    text: "UPDATE users SET verified=TRUE WHERE otp = $2 AND otp_expires_at > NOW() AND id=$1",
+    values: [id, otp],
   };
 
   const result = await pool.query(query);
@@ -104,7 +92,7 @@ const getOTPQuery = async (id) => {
 const updateVerifiedStatusQuery = async (id) => {
   const query = {
     name: "update-verified-status",
-    text: "UPDATE users SET verified=TRUE WHERE id=$1",
+    text: "UPDATE users SET verified=TRUE, otp = null, otp_created_at = null, otp_expires_at = null WHERE id=$1",
     values: [id],
   };
 
@@ -113,11 +101,11 @@ const updateVerifiedStatusQuery = async (id) => {
   return result;
 };
 
-const generateOTPAndUpdateOTPAttempts = async (otp, id, otp_creation_time) => {
+const generateOTPQuery = async (otp, id, otp_creation_time) => {
   const query = {
     name: "generate-otp-and-update-otp-attempts",
-    text: "UPDATE users SET otp = $1, otp_attempts = otp_attempts - 1, otp_created_at = $3 WHERE id = $2 RETURNING otp_attempts, otp_created_at",
-    values: [otp, id, otp_creation_time],
+    text: "UPDATE users SET otp = $1, otp_created_at = $3, otp_expires_at = $4 WHERE id = $2 RETURNING otp_created_at",
+    values: [otp, id, otp_creation_time, otp_expiry_time],
   };
   const result = await pool.query(query);
 
@@ -139,7 +127,7 @@ const updateUserInfo = async (id, name, profilePhoto) => {
 const getOtpData = async (id) => {
   const query = {
     name: "get-otp-data",
-    text: "SELECT otp_created_at, otp_attempts, verified FROM users WHERE id=$1",
+    text: "SELECT otp_created_at, verified FROM users WHERE id=$1",
     values: [id],
   };
 
@@ -158,7 +146,9 @@ module.exports = {
   otpAttemptsQuery,
   getOTPQuery,
   updateVerifiedStatusQuery,
-  generateOTPAndUpdateOTPAttempts,
   updateUserInfo,
   getOtpData,
+
+  //
+  otpVerificationQuery,
 };
