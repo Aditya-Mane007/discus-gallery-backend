@@ -194,7 +194,9 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   let otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
 
-  if (otpAttempts) {
+  console.log("otpAttempts : ", otpAttempts);
+
+  if (otpAttempts !== null) {
     if (Number(otpAttempts) === 0) {
       res.status(400).json({
         message:
@@ -202,13 +204,12 @@ const generateOtpController = asyncHandler(async (req, res) => {
       });
       return;
     } else {
-      await redisClient.decrby(`otp_attempts:${user?.id}`, 1);
+      otpAttempts = await redisClient.decrby(`otp_attempts:${user?.id}`, 1);
     }
   } else {
     otpAttempts = await redisClient.set(
       `otp_attempts:${user?.id}`,
       2,
-      "XX",
       "EX",
       60 * 60,
     );
@@ -217,7 +218,9 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   const otp = generateOTP(6);
   const otpCreationTime = new Date();
-  const otpExpiryTime = new Date() + OTP_EXPIRY_TIME;
+  const otpExpiryTime = new Date(
+    otpCreationTime.getTime() + OTP_EXPIRY_TIME * 60 * 1000,
+  ).toISOString();
 
   const userInfo = await generateOTPQuery(
     otp,
@@ -235,6 +238,8 @@ const generateOtpController = asyncHandler(async (req, res) => {
     otp_created_at: userInfo?.rows[0]?.otp_created_at,
     screen: "otp",
   };
+
+  console.log("DATA : ", data);
 
   res.status(200).json({
     data,
@@ -273,7 +278,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     await redisClient.set(
       `otp_verification_attempts:${user?.id}`,
       2,
-      "XX",
       "EX",
       60 * 5,
     );
@@ -397,13 +401,19 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const screenStatus = otpData?.rows[0];
 
-  const createdAt = screenStatus.otp_created_at
-    ? new Date(screenStatus.otp_created_at).getTime() / (1000 * 60)
-    : null;
-  const currentTime = new Date().getTime() / (1000 * 60);
+  console.log("SCREEN STATUS : ", screenStatus);
 
+  const currentTime = new Date();
+  const expiryTime = screenStatus?.otp_expires_at;
+  console.log(expiryTime - currentTime);
   const timeLeft =
-    createdAt === null ? null : Math.floor(currentTime - createdAt);
+    expiryTime == null
+      ? null
+      : Math.floor((expiryTime - currentTime) / 1000 / 60);
+
+  const otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
+
+  console.log("OTP ATTEMPTS : ", otpAttempts);
 
   // 2026-02-02 22:23:36
 
@@ -415,13 +425,13 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
       message = "";
       response = 200;
       break;
-    case timeLeft <= 240:
+    case timeLeft >= 0:
       screenShow = "otp";
       message = "";
       response = 200;
 
       break;
-    case timeLeft > 240:
+    case timeLeft < 0:
       screenShow = "otp";
       message = "";
       response = 400;
@@ -430,6 +440,7 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const data = {
     ...otpData?.rows[0],
+    otp_attempts: otpAttempts,
     screen: screenShow,
     error_message: message,
   };

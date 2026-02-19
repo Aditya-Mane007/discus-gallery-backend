@@ -45,7 +45,7 @@ const createUser = async (name, email, password) => {
 const getUserByEmail = async (email) => {
   const query = {
     name: "getUserByEmail",
-    text: "SELECT id, email, profile_photo, password, verified, FROM users WHERE email=$1",
+    text: "SELECT id, email, profile_photo, password, verified FROM users WHERE email=$1",
     values: [email],
   };
   const result = await pool.query(query);
@@ -101,7 +101,12 @@ const updateVerifiedStatusQuery = async (id) => {
   return result;
 };
 
-const generateOTPQuery = async (otp, id, otp_creation_time) => {
+const generateOTPQuery = async (
+  otp,
+  id,
+  otp_creation_time,
+  otp_expiry_time,
+) => {
   const query = {
     name: "generate-otp-and-update-otp-attempts",
     text: "UPDATE users SET otp = $1, otp_created_at = $3, otp_expires_at = $4 WHERE id = $2 RETURNING otp_created_at",
@@ -127,7 +132,7 @@ const updateUserInfo = async (id, name, profilePhoto) => {
 const getOtpData = async (id) => {
   const query = {
     name: "get-otp-data",
-    text: "SELECT otp_created_at, verified FROM users WHERE id=$1",
+    text: "SELECT otp_created_at,otp_expires_at, verified FROM users WHERE id=$1",
     values: [id],
   };
 
@@ -143,12 +148,9 @@ module.exports = {
   getUserByEmail,
   getUserById,
   generateOTPQuery,
-  otpAttemptsQuery,
   getOTPQuery,
   updateVerifiedStatusQuery,
   updateUserInfo,
   getOtpData,
-
-  //
   otpVerificationQuery,
 };

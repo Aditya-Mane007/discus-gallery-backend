@@ -9,10 +9,10 @@ const createUserTable = async () => {
     password VARCHAR(255) NOT NULL,
     profile_photo VARCHAR(255),
     verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     otp INTEGER,
-    otp_created_at TIMESTAMP
-    otp_expires_at TIMESTAMP
+    otp_created_at TIMESTAMPTZ,
+    otp_expires_at TIMESTAMPTZ
 )
     `;
 
@@ -37,5 +37,5 @@ const updateUsersTable = async () => {
   }
 };
 
-// createUserTable();
-updateUsersTable();
+createUserTable();
+// updateUsersTable();
