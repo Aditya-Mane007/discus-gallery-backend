@@ -10,6 +10,7 @@ const {
   updateUserInfo,
   getOtpData,
   otpVerificationQuery,
+  resetOtpStatus,
 } = require("../../models/userModel");
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
@@ -213,7 +214,8 @@ const generateOtpController = asyncHandler(async (req, res) => {
       "EX",
       60 * 60,
     );
-    await redisClient.expire(`otp_verification_attempts:${user?.id}`, 0, "NX");
+    await redisClient.del(`otp_verification_attempts:${user?.id}`);
+    await resetOtpStatus(user?.id);
   }
 
   const otp = generateOTP(6);
@@ -267,6 +269,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   if (otpVerificationAttempts) {
     if (Number(otpVerificationAttempts) === 0) {
+      await resetOtpStatus(user?.id);
       res.status(400).json({
         message: "Too many attempts, please generate new otp",
       });
@@ -311,7 +314,22 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Invalid OTP" });
   }
 
-  await updateVerifiedStatusQuery(user?.id);
+  const userVerification = await updateVerifiedStatusQuery(user?.id);
+
+  console.log("USER VERIFICATION : ", userVerification);
+
+  if (userVerification.rowCount < 1) {
+    res.status(400).json({
+      message: "OTP Vefication failed, please try again after sometime",
+    });
+
+    return;
+  }
+
+  await redisClient.del(
+    `otp_verification_attempts:${user?.id}`,
+    `otp_attempts:${user?.id}`,
+  );
 
   res.status(200).json({
     data: {
@@ -413,6 +431,8 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
 
+  const isOTPthere = otpData?.rows[0]?.otp;
+
   console.log("OTP ATTEMPTS : ", otpAttempts);
 
   // 2026-02-02 22:23:36
@@ -420,6 +440,11 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   let response = 200;
 
   switch (true) {
+    case timeLeft === null && isOTPthere:
+      screenShow = "otp";
+      message = "";
+      response = 200;
+      break;
     case timeLeft === null:
       screenShow = "email";
       message = "";

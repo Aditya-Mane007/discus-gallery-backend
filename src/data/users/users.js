@@ -26,7 +26,7 @@ const createUserTable = async () => {
 
 const updateUsersTable = async () => {
   const queryText = `
-   ALTER TABLE IF EXISTS users DROP COLUMN otp_attempts;
+   ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS is_otp_active BOOLEAN DEFAULT false;
     `;
 
   try {
@@ -37,5 +37,5 @@ const updateUsersTable = async () => {
   }
 };
 
-createUserTable();
-// updateUsersTable();
+// createUserTable();
+updateUsersTable();
