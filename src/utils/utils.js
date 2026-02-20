@@ -73,11 +73,7 @@ const decryptPayload = (payload) => {
 };
 
 const generateOTP = (length) => {
-  let otp = "";
-
-  for (let i = 0; i < length; i++) {
-    otp += Math.floor(Math.random() * 9);
-  }
+  const otp = crypto.randomInt(100000, 1000000);
 
   return otp;
 };

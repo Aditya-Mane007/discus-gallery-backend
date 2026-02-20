@@ -195,8 +195,6 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   let otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
 
-  console.log("otpAttempts : ", otpAttempts);
-
   if (otpAttempts !== null) {
     if (Number(otpAttempts) === 0) {
       res.status(400).json({
@@ -206,6 +204,7 @@ const generateOtpController = asyncHandler(async (req, res) => {
       return;
     } else {
       otpAttempts = await redisClient.decrby(`otp_attempts:${user?.id}`, 1);
+      await redisClient.del(`otp_verification_attempts:${user?.id}`);
     }
   } else {
     otpAttempts = await redisClient.set(
@@ -214,7 +213,6 @@ const generateOtpController = asyncHandler(async (req, res) => {
       "EX",
       60 * 60,
     );
-    await redisClient.del(`otp_verification_attempts:${user?.id}`);
     await resetOtpStatus(user?.id);
   }
 
@@ -240,8 +238,6 @@ const generateOtpController = asyncHandler(async (req, res) => {
     otp_created_at: userInfo?.rows[0]?.otp_created_at,
     screen: "otp",
   };
-
-  console.log("DATA : ", data);
 
   res.status(200).json({
     data,
@@ -315,8 +311,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   }
 
   const userVerification = await updateVerifiedStatusQuery(user?.id);
-
-  console.log("USER VERIFICATION : ", userVerification);
 
   if (userVerification.rowCount < 1) {
     res.status(400).json({
@@ -419,11 +413,8 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const screenStatus = otpData?.rows[0];
 
-  console.log("SCREEN STATUS : ", screenStatus);
-
   const currentTime = new Date();
   const expiryTime = screenStatus?.otp_expires_at;
-  console.log(expiryTime - currentTime);
   const timeLeft =
     expiryTime == null
       ? null
@@ -432,8 +423,6 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   const otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
 
   const isOTPthere = otpData?.rows[0]?.otp;
-
-  console.log("OTP ATTEMPTS : ", otpAttempts);
 
   // 2026-02-02 22:23:36
 
