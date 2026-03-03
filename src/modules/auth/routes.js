@@ -8,7 +8,7 @@ const {
   generateOtpController,
   otpVerificationController,
   getOtpStatusController,
-} = require("./controller");
+} = require("./controller.js");
 
 const authMiddleware = require("../../middleware/authMiddleware");
 

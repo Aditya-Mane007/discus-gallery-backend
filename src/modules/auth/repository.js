@@ -1,5 +1,5 @@
 const { TABLE_SCHEMA } = require("../../utils/constant");
-const { pool } = require("../config/db");
+const { pool } = require("../../config/db.js");
 
 const registerUserQuery = async () => {
   const result = await pool.query(`SELCET * FROM ${TABLE_SCHEMA.AUTH}`);
@@ -45,7 +45,7 @@ const createUser = async (name, email, password) => {
 // check for user and return user password
 const getUserByEmail = async (email) => {
   const query = {
-    name: "getUserByEmail",
+    name: "get-user-by-email",
     text: `SELECT id, email, profile_photo, password, verified FROM ${TABLE_SCHEMA.AUTH} WHERE email=$1`,
     values: [email],
   };
@@ -87,11 +87,17 @@ const generateOTPQuery = async (
 ) => {
   const query = {
     name: "generate-otp-and-update-otp-attempts",
-    text: `INSERT INTO ${TABLE_SCHEMA.OTP} SET otp = $1, otp_created_at = $3, otp_expires_at = $4, is_otp_active = true, user_id = $2 RETURNING otp_created_at`,
+    text: `WITH deactivate AS (UPDATE ${TABLE_SCHEMA.OTP} SET is_otp_active = false WHERE user_id = $2 AND is_otp_active=true) INSERT INTO ${TABLE_SCHEMA.OTP}(otp,otp_created_at,otp_expires_at,is_otp_active,user_id) VALUES($1,$3,$4,true,$2) RETURNING otp_created_at`,
     values: [otp, id, otp_creation_time, otp_expiry_time],
   };
+
+  // otp = $1, otp_created_at = $3, otp_expires_at = $4, is_otp_active = true, user_id = $2
+
+  await pool.query("BEGIN");
+
   const result = await pool.query(query);
 
+  await pool.query("COMMIT");
   return result;
 };
 
@@ -131,7 +137,7 @@ const updateVerifiedStatusQuery = async (id) => {
 const getOTPQuery = async (id) => {
   const query = {
     name: "get-otp-for-verification",
-    text: `SELECT otp, otp_created_at, otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA.OTP} WHERE user_id=$1`,
+    text: `SELECT otp, otp_created_at, otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA.OTP} WHERE user_id=$1 AND is_otp_active=true`,
     values: [id],
   };
 
@@ -156,7 +162,7 @@ const otpVerificationQuery = async (id, otp) => {
 const getOtpData = async (id) => {
   const query = {
     name: "get-otp-data",
-    text: `SELECT otp_created_at,otp_expires_at,otp,is_otp_active, verified FROM ${TABLE_SCHEMA.OTP} WHERE user_id=$1`,
+    text: `SELECT otp_created_at, otp_expires_at, otp , is_otp_active FROM ${TABLE_SCHEMA.OTP} WHERE user_id=$1 AND is_otp_active=true`,
     values: [id],
   };
 

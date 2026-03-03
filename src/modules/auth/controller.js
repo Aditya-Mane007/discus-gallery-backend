@@ -1,3 +1,6 @@
+const asyncHandler = require("express-async-handler");
+const bcrypt = require("bcrypt");
+const dotenv = require("dotenv");
 const {
   checkIfUsersExists,
   createUser,
@@ -10,10 +13,8 @@ const {
   updateUserInfo,
   getOtpData,
   otpVerificationQuery,
-} = require("./service");
-const asyncHandler = require("express-async-handler");
-const bcrypt = require("bcrypt");
-const dotenv = require("dotenv");
+  resetOtpStatus,
+} = require("./repository.js");
 const {
   generateCSRFToken,
   generateToken,
@@ -26,9 +27,9 @@ const {
   updateUserInfoSchema,
   resetPasswordSchema,
 } = require("./validation");
-const redisClient = require("../../services/redisClient");
+const redisClient = require("../../services/redisClient.js");
 const { OTP_EXPIRY_TIME } = require("../../utils/constant");
-const { resetOtpStatus } = require("./repository");
+
 dotenv.config();
 
 // Register Controller
@@ -179,6 +180,7 @@ const logoutController = (req, res) => {
 
 // Get User
 const authoriseController = (req, res) => {
+  console.log("REQ : ", req);
   return res.status(200).json({
     data: req.user,
     message: "User Verification Successfull",
@@ -252,13 +254,17 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
       .json({ message: "User is not authorised, please login" });
   }
 
+  console.log("USER : ", user);
+
   const otpData = await getOtpData(user?.id);
+
+  console.log("OTP DATA : ", otpData);
 
   if (!otpData) {
     return res.status(400).json({ message: "Unable to fetch otp data" });
   }
 
-  if (otpData?.rows[0]?.verified) {
+  if (user?.verified) {
     const data = {
       screen: "verified",
       message: "User is Verified",
@@ -270,6 +276,8 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   }
 
   const screenStatus = otpData?.rows[0];
+
+  console.log("screenStatus : ", screenStatus);
 
   const expiryTime = screenStatus?.otp_expires_at;
   const timeLeft =
@@ -340,7 +348,6 @@ const generateOtpController = asyncHandler(async (req, res) => {
         message:
           "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
       });
-      return;
     } else {
       otpAttempts = await redisClient.decrby(`otp_attempts:${user?.id}`, 1);
       await redisClient.del(`otp_verification_attempts:${user?.id}`);
@@ -363,6 +370,8 @@ const generateOtpController = asyncHandler(async (req, res) => {
     otpCreationTime,
     otpExpiryTime,
   );
+
+  console.log("userInfo : ", userInfo);
 
   if (!userInfo?.rowCount) {
     return res.status(400).json({ message: "Error Generating OTP" });

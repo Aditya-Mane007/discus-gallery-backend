@@ -261,7 +261,7 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Unable to fetch otp data" });
   }
 
-  if (otpData?.rows[0]?.verified) {
+  if (user?.verified) {
     const data = {
       screen: "verified",
       message: "User is Verified",
