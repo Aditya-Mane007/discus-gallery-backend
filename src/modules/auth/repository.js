@@ -78,112 +78,6 @@ const updateUserInfo = async (id, name, profilePhoto) => {
   return result;
 };
 
-// OTP
-// const generateOTPQuery = async (
-//   otp,
-//   id,
-//   otp_creation_time,
-//   otp_expiry_time,
-// ) => {
-//   const query = {
-//     name: "generate-otp-and-update-otp-attempts",
-//     text: `WITH deactivate AS (UPDATE ${TABLE_SCHEMA.OTP} SET is_otp_active = false WHERE user_id = $2 AND is_otp_active=true) INSERT INTO ${TABLE_SCHEMA.OTP}(otp,otp_created_at,otp_expires_at,is_otp_active,user_id) VALUES($1,$3,$4,true,$2) RETURNING otp_created_at`,
-//     values: [otp, id, otp_creation_time, otp_expiry_time],
-//   };
-
-//   // otp = $1, otp_created_at = $3, otp_expires_at = $4, is_otp_active = true, user_id = $2
-
-//   await pool.query("BEGIN");
-
-//   const result = await pool.query(query);
-
-//   await pool.query("COMMIT");
-//   return result;
-// };
-
-// // NEED TO TEST
-// const updateVerifiedStatusQuery = async (id) => {
-//   const query = {
-//     name: "update-verified-status",
-//     text: `UPDATE ${TABLE_SCHEMA.AUTH} SET verified=TRUE WHERE id=$1`,
-//     values: [id],
-//   };
-
-//   const otpQuery = {
-//     name: "update-otp-table",
-//     text: `UPDATE ${TABLE_SCHEMA.OTP} SET otp = null, otp_created_at = null, otp_expires_at = null, is_otp_active = false WHERE user_id=$1`,
-//   };
-
-//   try {
-//     await pool.query("BEGIN");
-
-//     await pool.query(query);
-
-//     await pool.query(otpQuery);
-
-//     await client.query("COMMIT");
-//   } catch (error) {
-//     await client.query("ROLLBACK");
-//     throw err;
-//   } finally {
-//     client.release();
-//   }
-
-//   const result = await pool.query(query);
-
-//   return result;
-// };
-
-// const getOTPQuery = async (id) => {
-//   const query = {
-//     name: "get-otp-for-verification",
-//     text: `SELECT otp, otp_created_at, otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA.OTP} WHERE user_id=$1 AND is_otp_active=true`,
-//     values: [id],
-//   };
-
-//   const result = await pool.query(query);
-
-//   return result;
-// };
-
-// // NOT IN USE
-// const otpVerificationQuery = async (id, otp) => {
-//   const query = {
-//     name: "otp-verification",
-//     text: `UPDATE ${TABLE_SCHEMA.AUTH} SET verified=TRUE WHERE otp = $2 AND otp_expires_at > NOW() AND id=$1`,
-//     values: [id, otp],
-//   };
-
-//   const result = await pool.query(query);
-
-//   return result;
-// };
-
-// const getOtpData = async (id) => {
-//   const query = {
-//     name: "get-otp-data",
-//     text: `SELECT otp_created_at, otp_expires_at, otp , is_otp_active FROM ${TABLE_SCHEMA.OTP} WHERE user_id=$1 AND is_otp_active=true`,
-//     values: [id],
-//   };
-
-//   const result = await pool.query(query);
-
-//   return result;
-// };
-
-// const resetOtpStatus = async (id) => {
-//   const query = {
-//     name: "reset-otp-attempts",
-//     text: `UPDATE ${TABLE_SCHEMA.OTP} SET is_otp_active = false WHERE user_id=$1`,
-//     values: [id],
-//   };
-
-//   const result = await pool.query(query);
-
-//   return result;
-// };
-
-// OTP
 const generateOTPQuery = async (
   otp,
   id,
@@ -192,17 +86,8 @@ const generateOTPQuery = async (
 ) => {
   const query = {
     name: "generate-otp-and-update-otp-attempts",
-    // text: "UPDATE users SET otp = $1, otp_created_at = $3, otp_expires_at = $4, is_otp_active = true WHERE id = $2 RETURNING otp_created_at",
-    text: `INSERT INTO ${TABLE_SCHEMA.OTP} (user_id, otp, otp_created_at, otp_expires_at, is_otp_active) 
-           VALUES ($1, $2, $3, $4, true) 
-           ON CONFLICT (user_id) 
-           DO UPDATE SET 
-             otp = $2, 
-             otp_created_at = $3, 
-             otp_expires_at = $4, 
-             is_otp_active = true 
-           RETURNING otp_created_at, otp_expires_at`,
-    values: [id, otp, otp_creation_time, otp_expiry_time],
+    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET otp = $1, otp_created_at = $3, otp_expires_at = $4, is_otp_active = true WHERE id = $2 RETURNING otp_created_at`,
+    values: [otp, id, otp_creation_time, otp_expiry_time],
   };
   const result = await pool.query(query);
 
@@ -212,7 +97,7 @@ const generateOTPQuery = async (
 const updateVerifiedStatusQuery = async (id) => {
   const query = {
     name: "update-verified-status",
-    text: "UPDATE users SET verified=TRUE, otp = null, otp_created_at = null, otp_expires_at = null, is_otp_active = false  WHERE id=$1",
+    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET verified=TRUE, otp = null, otp_created_at = null, otp_expires_at = null, is_otp_active = false  WHERE id=$1`,
     values: [id],
   };
 
@@ -224,7 +109,7 @@ const updateVerifiedStatusQuery = async (id) => {
 const getOTPQuery = async (id) => {
   const query = {
     name: "get-otp-for-verification",
-    text: `SELECT otp, otp_created_at, otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA?.OTP} WHERE user_id=$1`,
+    text: `SELECT otp, otp_created_at, otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1`,
     values: [id],
   };
 
@@ -236,7 +121,7 @@ const getOTPQuery = async (id) => {
 const otpVerificationQuery = async (id, otp) => {
   const query = {
     name: "otp-verification",
-    text: "UPDATE users SET verified=TRUE WHERE otp = $2 AND otp_expires_at > NOW() AND id=$1",
+    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET verified=TRUE WHERE otp = $2 AND otp_expires_at > NOW() AND id=$1`,
     values: [id, otp],
   };
 
@@ -248,7 +133,7 @@ const otpVerificationQuery = async (id, otp) => {
 const getOtpData = async (id) => {
   const query = {
     name: "get-otp-data",
-    text: `SELECT otp_created_at,otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA?.OTP} WHERE user_id=$1`,
+    text: `SELECT otp_created_at,otp_expires_at,otp,is_otp_active, verified FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1`,
     values: [id],
   };
 
@@ -260,7 +145,7 @@ const getOtpData = async (id) => {
 const resetOtpStatus = async (id) => {
   const query = {
     name: "reset-otp-attempts",
-    text: `UPDATE users SET is_otp_active = false WHERE id=$1`,
+    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET is_otp_active = false WHERE id=$1`,
     values: [id],
   };
 

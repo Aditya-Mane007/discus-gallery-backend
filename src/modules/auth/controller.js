@@ -180,7 +180,6 @@ const logoutController = (req, res) => {
 
 // Get User
 const authoriseController = (req, res) => {
-  console.log("REQ : ", req);
   return res.status(200).json({
     data: req.user,
     message: "User Verification Successfull",
@@ -254,11 +253,9 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
       .json({ message: "User is not authorised, please login" });
   }
 
-  console.log("USER : ", user);
 
   const otpData = await getOtpData(user?.id);
 
-  console.log("OTP DATA : ", otpData);
 
   if (!otpData) {
     return res.status(400).json({ message: "Unable to fetch otp data" });
@@ -277,7 +274,6 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const screenStatus = otpData?.rows[0];
 
-  console.log("screenStatus : ", screenStatus);
 
   const expiryTime = screenStatus?.otp_expires_at;
   const timeLeft =
@@ -371,7 +367,6 @@ const generateOtpController = asyncHandler(async (req, res) => {
     otpExpiryTime,
   );
 
-  console.log("userInfo : ", userInfo);
 
   if (!userInfo?.rowCount) {
     return res.status(400).json({ message: "Error Generating OTP" });
