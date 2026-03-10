@@ -18,11 +18,11 @@ const checkIfUsersExists = async (email) => {
   return result.rowCount > 0;
 };
 
-const createUser = async (name, email, password) => {
+const createUser = async (name, email, password, jwt_secret, refresh_token) => {
   const query = {
     name: "create-user",
-    text: `INSERT INTO ${TABLE_SCHEMA.AUTH}(name,email,password) VALUES($1,$2,$3) RETURNING id, email, profile_photo, verified`,
-    values: [name, email, password],
+    text: `INSERT INTO ${TABLE_SCHEMA.AUTH}(name,email,password,jwt_secret,refresh_token) VALUES($1,$2,$3,$4,$5) RETURNING id, email, profile_photo, verified,jwt_secret`,
+    values: [name, email, password, jwt_secret, refresh_token],
   };
 
   const result = await pool.query(query);
@@ -46,7 +46,7 @@ const createUser = async (name, email, password) => {
 const getUserByEmail = async (email) => {
   const query = {
     name: "get-user-by-email",
-    text: `SELECT id, email, profile_photo, password, verified FROM ${TABLE_SCHEMA.AUTH} WHERE email=$1`,
+    text: `SELECT id, email, profile_photo, password, verified, jwt_secret FROM ${TABLE_SCHEMA.AUTH} WHERE email=$1`,
     values: [email],
   };
   const result = await pool.query(query);
@@ -57,7 +57,7 @@ const getUserByEmail = async (email) => {
 const getUserById = async (id) => {
   const query = {
     name: "get-user-by-id",
-    text: `SELECT id, email, profile_photo, verified FROM ${TABLE_SCHEMA.AUTH} WHERE id=$1`,
+    text: `SELECT id, email, profile_photo, verified, jwt_secret FROM ${TABLE_SCHEMA.AUTH} WHERE id=$1`,
     values: [id],
   };
 
@@ -154,6 +154,19 @@ const resetOtpStatus = async (id) => {
   return result;
 };
 
+// UPDATE REFRESH TOKEN
+const updateRefreshToken = async (refreshToken, id) => {
+  const query = {
+    name: "update-refresh-token",
+    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET refresh_token=$1 WHERE id=$2`,
+    values: [refreshToken, id],
+  };
+
+  const result = pool.query(query);
+
+  return result;
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
@@ -167,4 +180,5 @@ module.exports = {
   getOtpData,
   otpVerificationQuery,
   resetOtpStatus,
+  updateRefreshToken,
 };

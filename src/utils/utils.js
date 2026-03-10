@@ -5,6 +5,9 @@ const jwt = require("jsonwebtoken");
 const AES = require("crypto-js/aes");
 const ENC = require("crypto-js/enc-utf8");
 const crypto = require("crypto");
+const { userInfo } = require("os");
+const { JWT_SECRET_BYTES, HASHED_SALT } = require("./constant");
+const bcrypt = require("bcrypt");
 
 // To compare csrf token
 const compareToken = (recievedToken, generatedToken) => {
@@ -21,10 +24,15 @@ const compareToken = (recievedToken, generatedToken) => {
 };
 
 // Generate JWT Token
-const generateToken = (userInfo) => {
-  return jwt.sign(userInfo, process.env.JWT_SECRET, {
+const generateToken = (userInfo, jwt_Secret) => {
+  return jwt.sign(userInfo, jwt_Secret, {
     expiresIn: "2d",
   });
+};
+
+// To Generate Refresh Token
+const generateRefreshToken = () => {
+  return crypto.randomBytes(JWT_SECRET_BYTES).toString("hex");
 };
 
 // To Generate CSRF token
@@ -35,6 +43,11 @@ const generateCSRFToken = (token) => {
     .digest("hex");
 
   return hashedToken;
+};
+
+// To Generate JWT Secret for user
+const generateJWTSecret = () => {
+  return crypto.randomBytes(JWT_SECRET_BYTES).toString("hex");
 };
 
 // To verify/compare/check token received token, generated csrf token from(received jwt token)
@@ -101,7 +114,9 @@ const send = async (recipent, otp) => {
 
 module.exports = {
   generateToken,
+  generateRefreshToken,
   generateCSRFToken,
+  generateJWTSecret,
   verifyToken,
   compareToken,
   encryptPayload,

@@ -1,6 +1,8 @@
 const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
+const crypto = require("crypto");
+
 const {
   checkIfUsersExists,
   createUser,
@@ -14,11 +16,14 @@ const {
   getOtpData,
   otpVerificationQuery,
   resetOtpStatus,
+  updateRefreshToken,
 } = require("./repository.js");
 const {
   generateCSRFToken,
   generateToken,
   generateOTP,
+  generateJWTSecret,
+  generateRefreshToken,
 } = require("../../utils/utils");
 const {
   registerSchema,
@@ -28,7 +33,7 @@ const {
   resetPasswordSchema,
 } = require("./validation");
 const redisClient = require("../../services/redisClient.js");
-const { OTP_EXPIRY_TIME } = require("../../utils/constant");
+const { OTP_EXPIRY_TIME, HASHED_SALT } = require("../../utils/constant");
 
 dotenv.config();
 
@@ -50,9 +55,21 @@ const registerController = asyncHandler(async (req, res) => {
       .json({ message: "User already exists, please login" });
   }
 
-  const hashpassword = await bcrypt.hash(password, 10);
+  const jwtSecret = generateJWTSecret();
 
-  const user = await createUser(name, email, hashpassword);
+  const hashpassword = await bcrypt.hash(password, HASHED_SALT);
+
+  const refreshToken = generateRefreshToken();
+
+  const hasedRefreshToken = await bcrypt.hash(token, HASHED_SALT);
+
+  const user = await createUser(
+    name,
+    email,
+    hashpassword,
+    jwtSecret,
+    hasedRefreshToken,
+  );
 
   if (!user) {
     return res.status(500).json({
@@ -60,14 +77,27 @@ const registerController = asyncHandler(async (req, res) => {
     });
   }
 
-  const token = generateToken({
-    id: user.id,
-    email: user.email,
-    profile_photo: user.profile_photo,
-    verified: user.verified,
-  });
+  const token = generateToken(
+    {
+      id: user.id,
+      email: user.email,
+      profile_photo: user.profile_photo,
+      verified: user.verified,
+    },
+    user?.jwt_secret,
+  );
+
+  delete user?.jwt_secret;
 
   res.cookie("token", token, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+
+  res.cookie("refresh-token", refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
@@ -120,12 +150,21 @@ const loginController = asyncHandler(async (req, res) => {
 
   const user = userExists.rows[0];
 
-  const token = generateToken({
-    id: user?.id,
-    email: user?.email,
-    profile_photo: user?.profile_photo,
-    verified: user?.verified,
-  });
+  const refreshToken = generateRefreshToken();
+
+  const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
+
+  await updateRefreshToken(hasedRefreshToken, user?.id);
+
+  const token = generateToken(
+    {
+      id: user?.id,
+      email: user?.email,
+      profile_photo: user?.profile_photo,
+      verified: user?.verified,
+    },
+    userExists.rows[0].jwt_secret,
+  );
 
   res.cookie("token", token, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
@@ -134,6 +173,14 @@ const loginController = asyncHandler(async (req, res) => {
     sameSite: "strict",
     domain: "localhost",
     secure: process.env.NODE_ENV === "production",
+  });
+
+  res.cookie("refresh-token", refreshToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
 
   const csrfToken = generateCSRFToken(token);
@@ -147,7 +194,10 @@ const loginController = asyncHandler(async (req, res) => {
   });
 
   const userInfo = user;
-  delete userInfo.password;
+
+  delete userInfo?.password;
+  delete userInfo?.jwt_secret;
+
   return res.status(200).json({
     accessToken: token,
     user: userInfo,
@@ -253,9 +303,7 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
       .json({ message: "User is not authorised, please login" });
   }
 
-
   const otpData = await getOtpData(user?.id);
-
 
   if (!otpData) {
     return res.status(400).json({ message: "Unable to fetch otp data" });
@@ -273,7 +321,6 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   }
 
   const screenStatus = otpData?.rows[0];
-
 
   const expiryTime = screenStatus?.otp_expires_at;
   const timeLeft =
@@ -366,7 +413,6 @@ const generateOtpController = asyncHandler(async (req, res) => {
     otpCreationTime,
     otpExpiryTime,
   );
-
 
   if (!userInfo?.rowCount) {
     return res.status(400).json({ message: "Error Generating OTP" });

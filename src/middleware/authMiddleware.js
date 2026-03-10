@@ -27,18 +27,28 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    const decodedTokon = jwt.verify(token, process.env.JWT_SECRET);
+    const decodedToken = jwt.decode(token, { complete: true });
 
-    const user = await getUserById(decodedTokon?.id);
+    // console.log("DECODED TOKEN : ", decodedToken);
+
+    const user = await getUserById(decodedToken?.payload?.id);
 
     if (user.rowCount === 0) {
       res.status(404);
       throw new Error("Unable to retrieve user account.");
     }
 
-    req.user = user.rows[0];
+    jwt.verify(token, user?.rows[0]?.jwt_secret);
+
+    const userInfo = user.rows[0];
+
+    delete userInfo?.jwt_secret;
+
+    req.user = userInfo;
+
     next();
   } catch (error) {
+    console.log("ERROR : ", error);
     res.clearCookie("token", {
       httpOnly: true,
       sameSite: "strict",
