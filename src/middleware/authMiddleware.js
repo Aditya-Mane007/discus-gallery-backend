@@ -29,8 +29,6 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   try {
     const decodedToken = jwt.decode(token, { complete: true });
 
-    // console.log("DECODED TOKEN : ", decodedToken);
-
     const user = await getUserById(decodedToken?.payload?.id);
 
     if (user.rowCount === 0) {
@@ -48,7 +46,12 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.log("ERROR : ", error);
+    if (error.name == "TokenExpiredError") {
+      return res.status(401).json({
+        message: "Access Token Expired",
+      });
+    }
+
     res.clearCookie("token", {
       httpOnly: true,
       sameSite: "strict",

@@ -167,6 +167,18 @@ const updateRefreshToken = async (refreshToken, id) => {
   return result;
 };
 
+const getRefreshTokenById = async (id) => {
+  const query = {
+    name: "get-refresh-token-from-db",
+    text: `SELECT id, name, email, profile_photo, verified, jwt_secret, refresh_token FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1`,
+    values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
@@ -181,4 +193,5 @@ module.exports = {
   otpVerificationQuery,
   resetOtpStatus,
   updateRefreshToken,
+  getRefreshTokenById,
 };

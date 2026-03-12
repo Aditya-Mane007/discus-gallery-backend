@@ -8,6 +8,7 @@ const {
   generateOtpController,
   otpVerificationController,
   getOtpStatusController,
+  getRefreshToken,
 } = require("./controller.js");
 
 const authMiddleware = require("../../middleware/authMiddleware");
@@ -25,6 +26,7 @@ router.post("/register", registerController);
 router.post("/login", loginController);
 router.get("/logout", authMiddleware, logoutController);
 router.get("/getuser", authMiddleware, authoriseController);
+router.get("/refresh-token", getRefreshToken);
 
 // OTP
 router.get("/generateOTP", authMiddleware, generateOtpController);

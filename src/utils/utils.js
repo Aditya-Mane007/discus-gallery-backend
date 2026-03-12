@@ -26,7 +26,7 @@ const compareToken = (recievedToken, generatedToken) => {
 // Generate JWT Token
 const generateToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
-    expiresIn: "2d",
+    expiresIn: 2,
   });
 };
 

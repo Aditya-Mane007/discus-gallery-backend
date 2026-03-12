@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 
 const {
   checkIfUsersExists,
@@ -17,6 +18,7 @@ const {
   otpVerificationQuery,
   resetOtpStatus,
   updateRefreshToken,
+  getRefreshTokenById,
 } = require("./repository.js");
 const {
   generateCSRFToken,
@@ -103,6 +105,7 @@ const registerController = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    path: "/api/auth/refresh-token",
   });
 
   const csrfToken = generateCSRFToken(token);
@@ -181,6 +184,7 @@ const loginController = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    path: "/api/auth/refresh-token",
   });
 
   const csrfToken = generateCSRFToken(token);
@@ -219,6 +223,13 @@ const logoutController = (req, res) => {
     secure: process.env.NODE_ENV === "production",
   });
 
+  res.clearCookie("refresh-token", {
+    httpOnly: true,
+    sameSite: "strict",
+    domain: "localhost",
+    secure: process.env.NODE_ENV === "production",
+  });
+
   res.clearCookie("XSRF-TOKEN", {
     httpOnly: false,
     domain: "localhost",
@@ -235,6 +246,119 @@ const authoriseController = (req, res) => {
     message: "User Verification Successfull",
   });
 };
+
+// Get Refresh token
+const getRefreshToken = asyncHandler(async (req, res) => {
+  const refreshToken = req?.cookies["refresh-token"];
+  const decodedToken = jwt.decode(req?.cookies["token"], { complete: true });
+
+  const refreshTokenFromDb = await getRefreshTokenById(
+    decodedToken?.payload?.id,
+  );
+
+  if (refreshTokenFromDb?.rowCount < 1) {
+    res.clearCookie("token", {
+      httpOnly: true,
+      sameSite: "strict",
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    res.clearCookie("refresh-token", {
+      httpOnly: true,
+      sameSite: "strict",
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    res.clearCookie("XSRF-TOKEN", {
+      httpOnly: false,
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  }
+
+  const isValid = await bcrypt.compare(
+    refreshToken,
+    refreshTokenFromDb?.rows[0]?.refresh_token,
+  );
+
+  if (!isValid) {
+    res.clearCookie("token", {
+      httpOnly: true,
+      sameSite: "strict",
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    res.clearCookie("refresh-token", {
+      httpOnly: true,
+      sameSite: "strict",
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    res.clearCookie("XSRF-TOKEN", {
+      httpOnly: false,
+      domain: "localhost",
+      secure: process.env.NODE_ENV === "production",
+    });
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  }
+
+  const newRefreshToken = generateRefreshToken();
+
+  const hasedRefreshToken = await bcrypt.hash(newRefreshToken, HASHED_SALT);
+
+  await updateRefreshToken(hasedRefreshToken, decodedToken?.payload?.id);
+
+  const userInfo = refreshTokenFromDb?.rows[0];
+
+  const token = generateToken(
+    {
+      id: userInfo?.id,
+      email: userInfo?.email,
+      profile_photo: userInfo?.profile_photo,
+      verified: userInfo?.verified,
+    },
+    userInfo.jwt_secret,
+  );
+
+  res.cookie("token", token, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    sameSite: "strict",
+    domain: "localhost",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  res.cookie("refresh-token", newRefreshToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/api/auth/refresh-token",
+  });
+
+  const csrfToken = generateCSRFToken(token);
+
+  res.cookie("XSRF-TOKEN", csrfToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: false,
+    domain: "localhost",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  return res.status(200).json({
+    message: "New Access Token Granted",
+  });
+});
 
 // Get User Details Controller
 const getUserController = asyncHandler(async (req, res) => {
@@ -528,6 +652,7 @@ module.exports = {
   loginController,
   logoutController,
   authoriseController,
+  getRefreshToken,
   generateOtpController,
   otpVerificationController,
   getUserController,
