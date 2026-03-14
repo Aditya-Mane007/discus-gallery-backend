@@ -179,6 +179,23 @@ const getRefreshTokenById = async (id) => {
   return result;
 };
 
+// CREATE SESSION
+const crateSession = async (user_id, device_name, ip, refresh_token) => {
+  const query = {
+    name: "create-user-session",
+    query: `INSERT INTO ${TABLE_SCHEMA?.SESSION}(user_id,device_name,ip_address,refresh_token) VALUES($1,$2,$3,$4)`,
+    values: [user_id, device_name, ip, refresh_token],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+// READ SESSION
+
+//
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
