@@ -1,4 +1,4 @@
-const { TABLE_SCHEMA } = require("../../utils/constant");
+const { TABLE_SCHEMA, SESSION_LIMIT } = require("../../utils/constant");
 const { pool } = require("../../config/db.js");
 
 const registerUserQuery = async () => {
@@ -18,11 +18,11 @@ const checkIfUsersExists = async (email) => {
   return result.rowCount > 0;
 };
 
-const createUser = async (name, email, password, jwt_secret, refresh_token) => {
+const createUser = async (name, email, password, jwt_secret) => {
   const query = {
     name: "create-user",
-    text: `INSERT INTO ${TABLE_SCHEMA.AUTH}(name,email,password,jwt_secret,refresh_token) VALUES($1,$2,$3,$4,$5) RETURNING id, email, profile_photo, verified,jwt_secret`,
-    values: [name, email, password, jwt_secret, refresh_token],
+    text: `INSERT INTO ${TABLE_SCHEMA.AUTH}(name,email,password,jwt_secret) VALUES($1,$2,$3,$4) RETURNING id, email, profile_photo, verified,jwt_secret`,
+    values: [name, email, password, jwt_secret],
   };
 
   const result = await pool.query(query);
@@ -170,7 +170,7 @@ const updateRefreshToken = async (refreshToken, id) => {
 const getRefreshTokenById = async (id) => {
   const query = {
     name: "get-refresh-token-from-db",
-    text: `SELECT id, name, email, profile_photo, verified, jwt_secret, refresh_token FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1`,
+    text: `SELECT id, name, email, profile_photo, verified, jwt_secret FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1 AND SELECT refresh_token FROM ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1`,
     values: [id],
   };
 
@@ -180,11 +180,56 @@ const getRefreshTokenById = async (id) => {
 };
 
 // CREATE SESSION
-const crateSession = async (user_id, device_name, ip, refresh_token) => {
+const createSession = async (user_id, device_name, refresh_token) => {
   const query = {
     name: "create-user-session",
-    query: `INSERT INTO ${TABLE_SCHEMA?.SESSION}(user_id,device_name,ip_address,refresh_token) VALUES($1,$2,$3,$4)`,
-    values: [user_id, device_name, ip, refresh_token],
+    text: `INSERT INTO ${TABLE_SCHEMA?.SESSION}(user_id,device_name,refresh_token) VALUES($1,$2,$3)`,
+    values: [user_id, device_name, refresh_token],
+  };
+
+  const getSessions = {
+    name: "get-user-session",
+    text: `SELECT * FROM ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1 AND is_active=TRUE`,
+    values: [user_id],
+  };
+
+  const updateLeastUsedSession = {
+    name: "update-least-used-session",
+    text: `UPDATE ${TABLE_SCHEMA?.SESSION} SET is_active=FALSE WHERE user_id=$1, AND id=$2`,
+    values: [user_id, sessionId],
+  };
+
+  const sessionResult = await pool.query(getSessions);
+
+  if (sessionResult?.rowCount == SESSION_LIMIT) {
+    console.log(sessionResult?.rows);
+
+    let leastUsedSession = Number.MAX_SAFE_INTEGER;
+    let leastUsedSessionId = null;
+
+    for (const item of sessionResult.rows) {
+      if (new Date(item?.created_at).getTime() < leastUsedSession) {
+        leastUsedSession = new Date(item?.created_at).getTime();
+        leastUsedSessionId = item?.id;
+      }
+    }
+
+    await pool.query(updateLeastUsedSession.text, [
+      user_id,
+      leastUsedSessionId,
+    ]);
+  }
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
+const getSessions = async (id) => {
+  const query = {
+    name: "create-user-session",
+    query: `SELECT * ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1`,
+    values: [id],
   };
 
   const result = await pool.query(query);
@@ -193,8 +238,30 @@ const crateSession = async (user_id, device_name, ip, refresh_token) => {
 };
 
 // READ SESSION
+const getSessionById = async (id, sessionId) => {
+  const query = {
+    name: "get-session-by-id",
+    query: `SELECT * FROM ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1 AND id=$2`,
+    values: [id, sessionId],
+  };
 
-//
+  const result = await pool.query(query);
+
+  return result;
+};
+
+// UPDATE OR SOFT DELETE SESSION
+const deleteSession = async (id, sessionId) => {
+  const query = {
+    name: "delete-session",
+    query: `UPDATE ${TABLE_SCHEMA?.SESSION} SET is_active = FALSE, WHERE user_id=$1 AND id=$2`,
+    values: [id, sessionId],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
 
 module.exports = {
   registerUserQuery,
@@ -211,4 +278,9 @@ module.exports = {
   resetOtpStatus,
   updateRefreshToken,
   getRefreshTokenById,
+
+  createSession,
+  getSessions,
+  getSessionById,
+  deleteSession,
 };

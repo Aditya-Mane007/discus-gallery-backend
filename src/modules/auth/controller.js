@@ -19,6 +19,7 @@ const {
   resetOtpStatus,
   updateRefreshToken,
   getRefreshTokenById,
+  createSession,
 } = require("./repository.js");
 const {
   generateCSRFToken,
@@ -63,15 +64,13 @@ const registerController = asyncHandler(async (req, res) => {
 
   const refreshToken = generateRefreshToken();
 
-  const hasedRefreshToken = await bcrypt.hash(token, HASHED_SALT);
+  const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
 
-  const user = await createUser(
-    name,
-    email,
-    hashpassword,
-    jwtSecret,
-    hasedRefreshToken,
-  );
+  const user = await createUser(name, email, hashpassword, jwtSecret);
+
+  const deviceName = req?.headers["sec-ch-ua-platform"].replace(/["']/g, "");
+
+  const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
   if (!user) {
     return res.status(500).json({
@@ -157,7 +156,9 @@ const loginController = asyncHandler(async (req, res) => {
 
   const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
 
-  await updateRefreshToken(hasedRefreshToken, user?.id);
+  const deviceName = req?.headers["sec-ch-ua-platform"].replace(/["']/g, "");
+
+  const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
   const token = generateToken(
     {

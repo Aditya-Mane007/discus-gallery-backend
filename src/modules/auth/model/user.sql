@@ -12,5 +12,6 @@ CREATE TABLE IF NOT EXISTS  users(
     otp_created_at TIMESTAMPTZ,
     otp_expires_at TIMESTAMPTZ,
     is_otp_active BOOLEAN DEFAULT false
+    jwt_secret TEXT NOT NULL
 )
 

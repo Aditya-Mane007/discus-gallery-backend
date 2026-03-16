@@ -9,3 +9,5 @@ export const TABLE_SCHEMA = {
 export const JWT_SECRET_BYTES = 64;
 
 export const HASHED_SALT = 10;
+
+export const SESSION_LIMIT = 3;

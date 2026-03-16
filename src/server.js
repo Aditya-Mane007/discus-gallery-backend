@@ -16,6 +16,18 @@ const app = express();
 
 // Middleware
 
+app.get("/server", (req, res) => {
+  console.log(
+    "REQ : ",
+    req.ip,
+    req.socket.remoteAddress,
+    req?.headers["sec-ch-ua-platform"].replaceAll("'", ""),
+  );
+  return res.status(201).json({
+    message: `Hello ${req?.headers["sec-ch-ua-platform"].replace(/["']/g, "")} User`,
+  });
+});
+
 //Returns middleware that only parses json and only looks at requests where the Content-Type header matches the type option.
 app.use(express.json());
 app.use(cookieParser());
