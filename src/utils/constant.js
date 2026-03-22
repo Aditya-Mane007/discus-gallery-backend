@@ -11,3 +11,12 @@ export const JWT_SECRET_BYTES = 64;
 export const HASHED_SALT = 10;
 
 export const SESSION_LIMIT = 3;
+
+export const clearAuthCookies = (res) => {
+  res.clearCookie("token",{
+    
+  });
+  res.clearCookie("refresh-token");
+  res.clearCookie("session-id");
+  res.clearCookie("XSRF-TOKEN");
+};

@@ -155,55 +155,90 @@ const resetOtpStatus = async (id) => {
 };
 
 // UPDATE REFRESH TOKEN
-const updateRefreshToken = async (refreshToken, id) => {
-  const query = {
-    name: "update-refresh-token",
-    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET refresh_token=$1 WHERE id=$2`,
-    values: [refreshToken, id],
-  };
-
-  const result = pool.query(query);
-
-  return result;
-};
-
-const getRefreshTokenById = async (id) => {
-  const query = {
-    name: "get-refresh-token-from-db",
-    text: `SELECT id, name, email, profile_photo, verified, jwt_secret FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1 AND SELECT refresh_token FROM ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1`,
-    values: [id],
-  };
-
-  const result = await pool.query(query);
-
-  return result;
+const updateRefreshToken = async (refreshToken, sessionId, activeStatus) => {
+  try {
+    let query;
+    let result;
+    if (activeStatus) {
+      query = {
+        name: "update-refresh-token",
+        text: `UPDATE ${TABLE_SCHEMA?.SESSION} SET refresh_token=$1 WHERE session_id=$2 AND is_active=$3`,
+        values: [refreshToken, sessionId, activeStatus],
+      };
+      result = pool.query(query);
+      return result;
+    } else {
+      query = {
+        name: "update-refresh-token",
+        text: `UPDATE ${TABLE_SCHEMA?.SESSION} SET is_active=FALSE WHERE session_id=$1`,
+        values: [sessionId],
+      };
+      result = pool.query(query);
+      return result;
+    }
+  } catch (error) {
+    console.log("ERROR : ", error);
+  }
 };
 
 // CREATE SESSION
+const checkRefreshToken = async (sessionId) => {
+  try {
+    const query = {
+      name: "get-refresh-token-from-db",
+      text: `
+        SELECT 
+          s.session_id AS "sessionId",
+          s.refresh_token,
+          s.user_id AS "userId",
+
+          u.id,
+          u.name,
+          u.email,
+          u.profile_photo,
+          u.verified,
+          u.jwt_secret
+
+        FROM ${TABLE_SCHEMA?.SESSION} s
+        INNER JOIN ${TABLE_SCHEMA?.AUTH} u
+          ON u.id = s.user_id
+        
+        WHERE 
+          s.session_id = $1
+          AND s.is_active = TRUE 
+      `,
+      values: [sessionId],
+    };
+
+    const result = await pool.query(query);
+
+    return result;
+  } catch (error) {
+    console.log("ERROR : ", error);
+  }
+};
+
 const createSession = async (user_id, device_name, refresh_token) => {
   const query = {
     name: "create-user-session",
-    text: `INSERT INTO ${TABLE_SCHEMA?.SESSION}(user_id,device_name,refresh_token) VALUES($1,$2,$3)`,
+    text: `INSERT INTO ${TABLE_SCHEMA?.SESSION}(user_id,device_name,refresh_token) VALUES($1,$2,$3) RETURNING session_id`,
     values: [user_id, device_name, refresh_token],
   };
 
   const getSessions = {
     name: "get-user-session",
-    text: `SELECT * FROM ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1 AND is_active=TRUE`,
+    text: `SELECT * FROM ${TABLE_SCHEMA?.SESSION} WHERE user_id=$1 AND is_active=TRUE ORDER BY created_at LIMIT 1`,
     values: [user_id],
   };
 
   const updateLeastUsedSession = {
     name: "update-least-used-session",
-    text: `UPDATE ${TABLE_SCHEMA?.SESSION} SET is_active=FALSE WHERE user_id=$1, AND id=$2`,
-    values: [user_id, sessionId],
+    text: `UPDATE ${TABLE_SCHEMA?.SESSION} SET is_active=FALSE WHERE user_id=$1 AND session_id=$2`,
   };
 
   const sessionResult = await pool.query(getSessions);
 
   if (sessionResult?.rowCount == SESSION_LIMIT) {
-    console.log(sessionResult?.rows);
-
     let leastUsedSession = Number.MAX_SAFE_INTEGER;
     let leastUsedSessionId = null;
 
@@ -277,7 +312,7 @@ module.exports = {
   otpVerificationQuery,
   resetOtpStatus,
   updateRefreshToken,
-  getRefreshTokenById,
+  checkRefreshToken,
 
   createSession,
   getSessions,

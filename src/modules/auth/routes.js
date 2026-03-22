@@ -24,7 +24,7 @@ router.get("/routeInfo", (req, res) => {
 // AUTH
 router.post("/register", registerController);
 router.post("/login", loginController);
-router.get("/logout", authMiddleware, logoutController);
+router.get("/logout", logoutController);
 router.get("/getuser", authMiddleware, authoriseController);
 router.get("/refresh-token", getRefreshToken);
 

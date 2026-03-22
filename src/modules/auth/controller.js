@@ -18,8 +18,8 @@ const {
   otpVerificationQuery,
   resetOtpStatus,
   updateRefreshToken,
-  getRefreshTokenById,
   createSession,
+  checkRefreshToken,
 } = require("./repository.js");
 const {
   generateCSRFToken,
@@ -36,9 +36,54 @@ const {
   resetPasswordSchema,
 } = require("./validation");
 const redisClient = require("../../services/redisClient.js");
-const { OTP_EXPIRY_TIME, HASHED_SALT } = require("../../utils/constant");
+const {
+  OTP_EXPIRY_TIME,
+  HASHED_SALT,
+  clearAuthCookies,
+} = require("../../utils/constant");
 
 dotenv.config();
+
+const REFRESH_LOCK_TTL_MS = 5000;
+const REFRESH_WAIT_TIMEOUT_MS = 5000;
+const REFRESH_WAIT_INTERVAL_MS = 150;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const setRefreshCookies = (res, sessionId, token, refreshToken, csrfToken) => {
+  res.cookie("session-id", sessionId, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+
+  res.cookie("token", token, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  res.cookie("refresh-token", refreshToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/api/auth/refresh-token",
+  });
+
+  res.cookie("XSRF-TOKEN", csrfToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+};
 
 // Register Controller
 const registerController = asyncHandler(async (req, res) => {
@@ -107,11 +152,22 @@ const registerController = asyncHandler(async (req, res) => {
     path: "/api/auth/refresh-token",
   });
 
+  const sessionId = session?.rows[0]?.session_id;
+
+  res.cookie("session-id", sessionId, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+
   const csrfToken = generateCSRFToken(token);
   res.cookie("XSRF-TOKEN", csrfToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
+    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
   });
@@ -160,6 +216,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
+
   const token = generateToken(
     {
       id: user?.id,
@@ -174,8 +231,8 @@ const loginController = asyncHandler(async (req, res) => {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    sameSite: "strict",
-    domain: "localhost",
+    sameSite: "lax",
+
     secure: process.env.NODE_ENV === "production",
   });
 
@@ -188,13 +245,23 @@ const loginController = asyncHandler(async (req, res) => {
     path: "/api/auth/refresh-token",
   });
 
+  const sessionId = session?.rows[0]?.session_id;
+
+  res.cookie("session-id", sessionId, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+
   const csrfToken = generateCSRFToken(token);
 
   res.cookie("XSRF-TOKEN", csrfToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
-    domain: "localhost",
+    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
 
@@ -211,33 +278,19 @@ const loginController = asyncHandler(async (req, res) => {
 });
 
 // Logout Controller
-const logoutController = (req, res) => {
-  const user = req?.user;
+const logoutController = async (req, res) => {
 
-  if (!user) {
-    return res.status(401).json({ message: "User is not authorised" });
-  }
-  res.clearCookie("token", {
-    httpOnly: true,
-    sameSite: "strict",
-    domain: "localhost",
-    secure: process.env.NODE_ENV === "production",
-  });
+  const sessionId = req.cookies["session-id"];
 
-  res.clearCookie("refresh-token", {
-    httpOnly: true,
-    sameSite: "strict",
-    domain: "localhost",
-    secure: process.env.NODE_ENV === "production",
-  });
 
-  res.clearCookie("XSRF-TOKEN", {
-    httpOnly: false,
-    domain: "localhost",
-    secure: process.env.NODE_ENV === "production",
-  });
+  const status = false;
 
-  return res.status(200).json({ message: "Logged out successfully" });
+  const result = await updateRefreshToken(null, sessionId, status);
+
+
+  clearAuthCookies(res);
+
+  return res.status(201).json({ message: "Logout Successfully" });
 };
 
 // Get User
@@ -250,115 +303,131 @@ const authoriseController = (req, res) => {
 
 // Get Refresh token
 const getRefreshToken = asyncHandler(async (req, res) => {
-  const refreshToken = req?.cookies["refresh-token"];
-  const decodedToken = jwt.decode(req?.cookies["token"], { complete: true });
+  const cookies = req?.cookies;
+  const refreshToken = cookies["refresh-token"];
+  const sessionId = cookies["session-id"];
 
-  const refreshTokenFromDb = await getRefreshTokenById(
-    decodedToken?.payload?.id,
-  );
-
-  if (refreshTokenFromDb?.rowCount < 1) {
-    res.clearCookie("token", {
-      httpOnly: true,
-      sameSite: "strict",
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    res.clearCookie("refresh-token", {
-      httpOnly: true,
-      sameSite: "strict",
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    res.clearCookie("XSRF-TOKEN", {
-      httpOnly: false,
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    return res.status(200).json({ message: "Logged out successfully" });
+  if (!refreshToken || !sessionId) {
+    clearAuthCookies(res);
+    return res.status(401).json({ message: "Session expired" });
   }
 
-  const isValid = await bcrypt.compare(
-    refreshToken,
-    refreshTokenFromDb?.rows[0]?.refresh_token,
+  const lockKey = `refresh_lock:${sessionId}`;
+  const resultKey = `refresh_result:${sessionId}`;
+  const lockValue = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const lockStatus = await redisClient.set(
+    lockKey,
+    lockValue,
+    "PX",
+    REFRESH_LOCK_TTL_MS,
+    "NX",
   );
 
-  if (!isValid) {
-    res.clearCookie("token", {
-      httpOnly: true,
-      sameSite: "strict",
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
+  if (lockStatus !== "OK") {
+    const waitStartTime = Date.now();
+    while (Date.now() - waitStartTime < REFRESH_WAIT_TIMEOUT_MS) {
+      const cachedResult = await redisClient.get(resultKey);
+      if (cachedResult) {
+        const parsed = JSON.parse(cachedResult);
+        setRefreshCookies(
+          res,
+          parsed?.sessionId,
+          parsed?.token,
+          parsed?.refreshToken,
+          parsed?.csrfToken,
+        );
+        return res.status(200).json({
+          message: "New Access Token Granted",
+          shared: true,
+        });
+      }
 
-    res.clearCookie("refresh-token", {
-      httpOnly: true,
-      sameSite: "strict",
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
+      await sleep(REFRESH_WAIT_INTERVAL_MS);
+    }
 
-    res.clearCookie("XSRF-TOKEN", {
-      httpOnly: false,
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
+    return res.status(429).json({
+      message: "Token refresh already in progress. Please retry.",
     });
-
-    return res.status(200).json({ message: "Logged out successfully" });
   }
 
-  const newRefreshToken = generateRefreshToken();
+  try {
+    const refreshTokenFromDb = await checkRefreshToken(sessionId);
 
-  const hasedRefreshToken = await bcrypt.hash(newRefreshToken, HASHED_SALT);
+    if (refreshTokenFromDb?.rowCount < 1) {
+      const status = false;
+      await updateRefreshToken(null, sessionId, status);
 
-  await updateRefreshToken(hasedRefreshToken, decodedToken?.payload?.id);
+      clearAuthCookies(res);
 
-  const userInfo = refreshTokenFromDb?.rows[0];
+      return res.status(401).json({ message: "Session expired" });
+    }
 
-  const token = generateToken(
-    {
-      id: userInfo?.id,
-      email: userInfo?.email,
-      profile_photo: userInfo?.profile_photo,
-      verified: userInfo?.verified,
-    },
-    userInfo.jwt_secret,
-  );
+    const isValid = await bcrypt.compare(
+      refreshToken,
+      refreshTokenFromDb?.rows[0]?.refresh_token,
+    );
 
-  res.cookie("token", token, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    sameSite: "strict",
-    domain: "localhost",
-    secure: process.env.NODE_ENV === "production",
-  });
+    if (!isValid) {
+      const status = false;
+      await updateRefreshToken(null, sessionId, status);
+      clearAuthCookies(res);
 
-  res.cookie("refresh-token", newRefreshToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/auth/refresh-token",
-  });
+      return res.status(400).json({ message: "Logged out successfully" });
+    }
 
-  const csrfToken = generateCSRFToken(token);
+    const newRefreshToken = generateRefreshToken();
+    const hasedRefreshToken = await bcrypt.hash(newRefreshToken, HASHED_SALT);
 
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: false,
-    domain: "localhost",
-    secure: process.env.NODE_ENV === "production",
-  });
+    const status = true;
 
-  return res.status(200).json({
-    message: "New Access Token Granted",
-  });
+    await updateRefreshToken(hasedRefreshToken, sessionId, status);
+
+    const userInfo = refreshTokenFromDb?.rows[0];
+
+
+    const token = generateToken(
+      {
+        id: userInfo?.userId,
+        email: userInfo?.email,
+        profile_photo: userInfo?.profile_photo,
+        verified: userInfo?.verified,
+      },
+      userInfo.jwt_secret,
+    );
+
+    const csrfToken = generateCSRFToken(token);
+
+    setRefreshCookies(
+      res,
+      userInfo?.sessionId,
+      token,
+      newRefreshToken,
+      csrfToken,
+    );
+
+    await redisClient.set(
+      resultKey,
+      JSON.stringify({
+        sessionId: userInfo?.sessionId,
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken,
+      }),
+      "PX",
+      REFRESH_WAIT_TIMEOUT_MS,
+    );
+
+    return res.status(200).json({
+      message: "New Access Token Granted",
+      shared: false,
+    });
+  } finally {
+    const lockOwner = await redisClient.get(lockKey);
+    if (lockOwner === lockValue) {
+      await redisClient.del(lockKey);
+    }
+  }
 });
 
 // Get User Details Controller

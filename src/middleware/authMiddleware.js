@@ -2,21 +2,18 @@ const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
 const { getUserById } = require("../modules/auth/repository.js");
 const { verifyToken } = require("../utils/utils");
+const { clearAuthCookies } = require("../utils/constant.js");
 
 const authMiddleware = asyncHandler(async (req, res, next) => {
   let csrf = req?.cookies?.["XSRF-TOKEN"];
   let token = req?.cookies?.token;
 
   if (!csrf) {
-    res.status(400);
-    throw new Error("Invalid request: csrf token required.");
+    res.status(400).json({ message: "Invalid request: csrf token required." });
   }
 
   if (!token) {
-    res.status(400);
-    throw new Error(
-      "Access denied: no authentication token provided, please sign in again",
-    );
+    return res.status(401).json({ message: "No token" });
   }
 
   const csrfTokenStatus = verifyToken(token, csrf);
@@ -28,6 +25,10 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
   try {
     const decodedToken = jwt.decode(token, { complete: true });
+
+    if (!decodedToken?.payload?.id) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
 
     const user = await getUserById(decodedToken?.payload?.id);
 
@@ -52,18 +53,8 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
       });
     }
 
-    res.clearCookie("token", {
-      httpOnly: true,
-      sameSite: "strict",
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
+    clearAuthCookies(res);
 
-    res.clearCookie("XSRF-TOKEN", {
-      httpOnly: false,
-      domain: "localhost",
-      secure: process.env.NODE_ENV === "production",
-    });
     res.status(500);
     throw new Error("Verification failed, please try again after sometime");
   }
