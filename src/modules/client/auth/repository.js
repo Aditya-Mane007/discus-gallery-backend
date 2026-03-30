@@ -1,5 +1,5 @@
-const { TABLE_SCHEMA, SESSION_LIMIT } = require("../../utils/constant");
-const { pool } = require("../../config/db.js");
+const { TABLE_SCHEMA, SESSION_LIMIT } = require("../../../utils/constant.js");
+const { pool } = require("../../../config/db.js");
 
 const registerUserQuery = async () => {
   const result = await pool.query(`SELCET * FROM ${TABLE_SCHEMA.AUTH}`);

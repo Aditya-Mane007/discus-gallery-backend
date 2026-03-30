@@ -4,6 +4,7 @@ export const TABLE_SCHEMA = {
   AUTH: "auth.users",
   OTP: "auth.otp",
   SESSION: "auth.sessions",
+  ADMIN_AUTH: "admin.auth",
 };
 
 export const JWT_SECRET_BYTES = 64;
@@ -13,9 +14,7 @@ export const HASHED_SALT = 10;
 export const SESSION_LIMIT = 3;
 
 export const clearAuthCookies = (res) => {
-  res.clearCookie("token",{
-    
-  });
+  res.clearCookie("token", {});
   res.clearCookie("refresh-token");
   res.clearCookie("session-id");
   res.clearCookie("XSRF-TOKEN");

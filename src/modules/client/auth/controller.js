@@ -27,20 +27,20 @@ const {
   generateOTP,
   generateJWTSecret,
   generateRefreshToken,
-} = require("../../utils/utils");
+} = require("../../../utils/utils.js");
 const {
   registerSchema,
   loginSchema,
   otpVerificationSchema,
   updateUserInfoSchema,
   resetPasswordSchema,
-} = require("./validation");
-const redisClient = require("../../services/redisClient.js");
+} = require("./validation.js");
+const redisClient = require("../../../services/redisClient.js");
 const {
   OTP_EXPIRY_TIME,
   HASHED_SALT,
   clearAuthCookies,
-} = require("../../utils/constant");
+} = require("../../../utils/constant.js");
 
 dotenv.config();
 
@@ -216,7 +216,6 @@ const loginController = asyncHandler(async (req, res) => {
 
   const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
-
   const token = generateToken(
     {
       id: user?.id,
@@ -279,14 +278,11 @@ const loginController = asyncHandler(async (req, res) => {
 
 // Logout Controller
 const logoutController = async (req, res) => {
-
   const sessionId = req.cookies["session-id"];
-
 
   const status = false;
 
   const result = await updateRefreshToken(null, sessionId, status);
-
 
   clearAuthCookies(res);
 
@@ -384,7 +380,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
     await updateRefreshToken(hasedRefreshToken, sessionId, status);
 
     const userInfo = refreshTokenFromDb?.rows[0];
-
 
     const token = generateToken(
       {

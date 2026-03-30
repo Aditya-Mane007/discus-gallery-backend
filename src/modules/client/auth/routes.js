@@ -11,7 +11,7 @@ const {
   getRefreshToken,
 } = require("./controller.js");
 
-const authMiddleware = require("../../middleware/authMiddleware");
+const authMiddleware = require("../../../middleware/authMiddleware.js");
 
 const router = express.Router();
 
