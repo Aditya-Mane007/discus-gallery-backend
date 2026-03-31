@@ -4,7 +4,10 @@ export const TABLE_SCHEMA = {
   AUTH: "auth.users",
   OTP: "auth.otp",
   SESSION: "auth.sessions",
-  ADMIN_AUTH: "admin.auth",
+
+  // ADMIN
+  ADMIN_AUTH: "admin.users",
+  ADMIN_SESSION: "admin.user_sessions",
 };
 
 export const JWT_SECRET_BYTES = 64;

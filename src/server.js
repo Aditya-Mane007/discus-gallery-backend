@@ -4,11 +4,19 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
 
+const bcrypt = require("bcrypt");
+
 const errorHandler = require("./middleware/errorMiddleware.js");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const decryptionMiddleware = require("./middleware/decryptionMiddlware.js");
 const encryptionMiddleware = require("./middleware/encryptionMiddleware.js");
+const { generateJWTSecret, generateRefreshToken } = require("./utils/utils.js");
+const { HASHED_SALT } = require("./utils/constant.js");
+const {
+  createUser,
+  checkIfUsersExists,
+} = require("./modules/admin/auth/repository.js");
 
 const PORT = process.env.PORT || 5000;
 
@@ -40,6 +48,26 @@ app.use(
     credentials: true, // enable cookies to be sent cross-origin
   }),
 );
+
+// app.get("/create-super-user", async (req, res) => {
+//   const email = "aditya.mane.superadmin@discusgallery.com";
+//   const password = "ADITYA27@SA";
+//   const name = "ADITYA ASHOK MANE";
+
+//   const useExists = await checkIfUsersExists(email);
+
+//   if (useExists) {
+//     return res
+//       .status(400)
+//       .json({ message: "User already exists, please login" });
+//   }
+
+//   const jwtSecret = generateJWTSecret();
+
+//   const hashpassword = await bcrypt.hash(password, HASHED_SALT);
+
+//   await createUser(name, email, hashpassword, jwtSecret);
+// });
 
 app.use("/api", decryptionMiddleware);
 

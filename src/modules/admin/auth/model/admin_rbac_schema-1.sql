@@ -63,13 +63,13 @@ CREATE TABLE IF NOT EXISTS admin.roles (
 -- =========================
 -- MODULES
 -- =========================
-CREATE TABLE IF NOT EXISTS admin.modules (
-  module_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  module_code TEXT NOT NULL UNIQUE,
-  module_text TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+  CREATE TABLE IF NOT EXISTS admin.modules (
+    module_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    module_code TEXT NOT NULL UNIQUE,
+    module_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
 
 -- =========================
 -- MODULE PERMISSIONS

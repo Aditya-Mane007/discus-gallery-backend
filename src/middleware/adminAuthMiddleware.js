@@ -4,7 +4,8 @@ const { getUserById } = require("../modules/admin/auth/repository.js");
 const { verifyToken } = require("../utils/utils");
 const { clearAuthCookies } = require("../utils/constant.js");
 
-const authMiddleware = asyncHandler(async (req, res, next) => {
+const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
+  console.log("REQ : ", req);
   let csrf = req?.cookies?.["XSRF-TOKEN"];
   let token = req?.cookies?.token;
 
@@ -47,6 +48,7 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.log("ERROR : ", error);
     if (error.name == "TokenExpiredError") {
       return res.status(401).json({
         message: "Access Token Expired",
@@ -60,4 +62,4 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = authMiddleware;
+module.exports = adminAuthMiddlware;

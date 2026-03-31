@@ -73,7 +73,7 @@ const setRefreshCookies = (res, sessionId, token, refreshToken, csrfToken) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/api/client/auth/refresh-token",
+    path: "/api/admin/auth/refresh-token",
   });
 
   res.cookie("XSRF-TOKEN", csrfToken, {
@@ -149,7 +149,7 @@ const registerController = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/api/client/auth/refresh-token",
+    path: "/api/admin/auth/refresh-token",
   });
 
   const sessionId = session?.rows[0]?.session_id;
@@ -212,9 +212,18 @@ const loginController = asyncHandler(async (req, res) => {
 
   const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
 
+  console.log(req?.ip);
+
   const deviceName = req?.headers["sec-ch-ua-platform"].replace(/["']/g, "");
 
-  const session = await createSession(user?.id, deviceName, hasedRefreshToken);
+  const ip = req?.ip || req?.socket?.remoteAddress;
+
+  const session = await createSession(
+    user?.id,
+    deviceName,
+    hasedRefreshToken,
+    ip,
+  );
 
   const token = generateToken(
     {
@@ -241,7 +250,7 @@ const loginController = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/api/client/auth/refresh-token",
+    path: "/api/admin/auth/refresh-token",
   });
 
   const sessionId = session?.rows[0]?.session_id;
