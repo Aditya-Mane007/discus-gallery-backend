@@ -298,6 +298,19 @@ const deleteSession = async (id, sessionId) => {
   return result;
 };
 
+// TEMP SESSION
+const createTempSession = async (user_id, device_name, ip) => {
+  const query = {
+    name: "create-temp-session",
+    text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_TEMP_SESSION}(user_id,device,ip) VALUES($1,$2,$3) RETURNING temp_session_id`,
+    values: [user_id, device_name, ip],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
@@ -318,4 +331,6 @@ module.exports = {
   getSessions,
   getSessionById,
   deleteSession,
+
+  createTempSession,
 };

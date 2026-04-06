@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS admin.users (
   permission_version INTEGER NOT NULL DEFAULT 1,
   jwt_secret_hash TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  profile_photo citext ,
+  password citrext NOT NULL
 );
 
 -- =========================
@@ -30,7 +32,7 @@ CREATE TABLE IF NOT EXISTS admin.users (
 CREATE TABLE IF NOT EXISTS admin.user_sessions (
   session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID,
-  device TEXT NOT NULL,
+  device_name TEXT NOT NULL,
   ip INET,
   refresh_token_hash TEXT NOT NULL,
   revoked_status BOOLEAN NOT NULL DEFAULT FALSE,
@@ -43,11 +45,27 @@ CREATE TABLE IF NOT EXISTS admin.user_sessions (
     ON DELETE SET NULL
 );
 
+
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
   ON admin.user_sessions (user_id);
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_active_revoked
   ON admin.user_sessions (is_active, revoked_status);
+
+
+CREATE TABLE IF NOT EXISTS admin.temp_session(
+  temp_session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  device_name citext NOT NULL,
+  ip INET,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_temp_user_id
+    FOREIGN KEY (user_id)
+    REFERENCES admin.users (id)
+    ON DELETE SET NULL
+);
+
 
 -- =========================
 -- ROLES
@@ -99,6 +117,8 @@ CREATE TABLE IF NOT EXISTS admin.user_roles (
   role_id UUID NOT NULL,
   assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   assigned_by UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT fk_user_roles_user_id
     FOREIGN KEY (user_id)
     REFERENCES admin.users (id)
@@ -129,6 +149,8 @@ CREATE TABLE IF NOT EXISTS admin.role_permissions (
   module_permission_id UUID NOT NULL,
   granted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   granted_by UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT fk_role_permissions_role_id
     FOREIGN KEY (role_id)
     REFERENCES admin.roles (role_id)
@@ -160,7 +182,8 @@ CREATE TABLE IF NOT EXISTS admin.user_permissions (
   is_allowed BOOLEAN NOT NULL,
   reason TEXT,
   granted_by UUID,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT fk_user_permissions_user_id
     FOREIGN KEY (user_id)
     REFERENCES admin.users (id)
@@ -181,3 +204,26 @@ CREATE INDEX IF NOT EXISTS idx_user_permissions_user_id
 
 CREATE INDEX IF NOT EXISTS idx_user_permissions_module_permission_id
   ON admin.user_permissions (module_permission_id);
+
+
+
+CREATE TABLE IF NOT EXISTS admin.otp_codes (
+  otp_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  otp_code TEXT NOT NULL, -- hashed otp
+  otp_type TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),  
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_otp_codes_user_id
+    FOREIGN KEY (user_id)
+    REFERENCES admin.users (id)
+    ON DELETE CASCADE 
+)
+
+--- =========================
+-- 1 → LOGIN_VERIFICATION
+-- 2 → EMAIL_VERIFICATION
+-- 3 → PASSWORD_RESET
+-- 4 → PHONE_VERIFICATION
+--- =========================

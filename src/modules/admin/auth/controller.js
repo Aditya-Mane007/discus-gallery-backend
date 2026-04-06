@@ -20,6 +20,7 @@ const {
   updateRefreshToken,
   createSession,
   checkRefreshToken,
+  createTempSession,
 } = require("./repository.js");
 const {
   generateCSRFToken,
@@ -208,67 +209,22 @@ const loginController = asyncHandler(async (req, res) => {
 
   const user = userExists.rows[0];
 
-  const refreshToken = generateRefreshToken();
-
-  const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
-
-  console.log(req?.ip);
+  console.log("USER INFO : ", user);
 
   const deviceName = req?.headers["sec-ch-ua-platform"].replace(/["']/g, "");
 
   const ip = req?.ip || req?.socket?.remoteAddress;
 
-  const session = await createSession(
-    user?.id,
-    deviceName,
-    hasedRefreshToken,
-    ip,
-  );
+  const tempSession = await createTempSession(user?.id, deviceName, ip);
 
-  const token = generateToken(
-    {
-      id: user?.id,
-      email: user?.email,
-      profile_photo: user?.profile_photo,
-      verified: user?.verified,
-    },
-    userExists.rows[0].jwt_secret,
-  );
+  const temSessionId = tempSession.rows[0]?.temp_session_id;
 
-  res.cookie("token", token, {
+  // console.log(temSessionId);
+
+  res.cookie("temp-session-id", temSessionId, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    sameSite: "lax",
-
-    secure: process.env.NODE_ENV === "production",
-  });
-
-  res.cookie("refresh-token", refreshToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/admin/auth/refresh-token",
-  });
-
-  const sessionId = session?.rows[0]?.session_id;
-
-  res.cookie("session-id", sessionId, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  });
-
-  const csrfToken = generateCSRFToken(token);
-
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: false,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
@@ -279,10 +235,82 @@ const loginController = asyncHandler(async (req, res) => {
   delete userInfo?.jwt_secret;
 
   return res.status(200).json({
-    accessToken: token,
     user: userInfo,
     message: "Logged In Successfully",
   });
+
+  // const refreshToken = generateRefreshToken();
+
+  // const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
+
+  // console.log(req?.ip);
+
+  // const session = await createSession(
+  //   user?.id,
+  //   deviceName,
+  //   hasedRefreshToken,
+  //   ip,
+  // );
+
+  // const token = generateToken(
+  //   {
+  //     id: user?.id,
+  //     email: user?.email,
+  //     profile_photo: user?.profile_photo,
+  //     verified: user?.verified,
+  //   },
+  //   userExists.rows[0].jwt_secret,
+  // );
+
+  // res.cookie("token", token, {
+  //   maxAge: 3 * 24 * 60 * 60 * 1000,
+  //   expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  //   httpOnly: true,
+  //   sameSite: "lax",
+
+  //   secure: process.env.NODE_ENV === "production",
+  // });
+
+  // res.cookie("refresh-token", refreshToken, {
+  //   maxAge: 3 * 24 * 60 * 60 * 1000,
+  //   expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  //   httpOnly: true,
+  //   secure: process.env.NODE_ENV === "production",
+  //   sameSite: "lax",
+  //   path: "/api/admin/auth/refresh-token",
+  // });
+
+  // const sessionId = session?.rows[0]?.session_id;
+
+  // res.cookie("session-id", sessionId, {
+  //   maxAge: 3 * 24 * 60 * 60 * 1000,
+  //   expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  //   httpOnly: true,
+  //   secure: process.env.NODE_ENV === "production",
+  //   sameSite: "lax",
+  // });
+
+  // const csrfToken = generateCSRFToken(token);
+
+  // res.cookie("XSRF-TOKEN", csrfToken, {
+  //   maxAge: 3 * 24 * 60 * 60 * 1000,
+  //   expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  //   httpOnly: false,
+  //   sameSite: "lax",
+  //   secure: process.env.NODE_ENV === "production",
+  // });
+
+  // const userInfo = user;
+
+  // delete userInfo?.password;
+  // delete userInfo?.jwt_secret;
+
+  // return res.status(200).json({
+  //   accessToken: token,
+  //   user: userInfo,
+  //   redirectTo: "/verify",
+  //   message: "Logged In Successfully",
+  // });
 });
 
 // Logout Controller
