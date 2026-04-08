@@ -221,6 +221,19 @@ CREATE TABLE IF NOT EXISTS admin.otp_codes (
     ON DELETE CASCADE 
 )
 
+
+CREATE TABLE IF NOT EXISTS otps (
+    otp_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    temp_session_id UUID NULL,
+    otp_type SMALLINT NOT NULL, 
+    otp_hash TEXT NOT NULL, -- HASHED
+    is_active BOOLEAN DEFAULT TRUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+
 --- =========================
 -- 1 → LOGIN_VERIFICATION
 -- 2 → EMAIL_VERIFICATION

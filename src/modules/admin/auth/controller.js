@@ -28,6 +28,7 @@ const {
   generateOTP,
   generateJWTSecret,
   generateRefreshToken,
+  generateTempSessionToken,
 } = require("../../../utils/utils.js");
 const {
   registerSchema,
@@ -42,6 +43,7 @@ const {
   HASHED_SALT,
   clearAuthCookies,
 } = require("../../../utils/constant.js");
+const { config } = require("../../../config/config.js");
 
 dotenv.config();
 
@@ -219,12 +221,28 @@ const loginController = asyncHandler(async (req, res) => {
 
   const temSessionId = tempSession.rows[0]?.temp_session_id;
 
-  // console.log(temSessionId);
+  const token = generateTempSessionToken(
+    {
+      id: user?.id,
+      temp_session_id: temSessionId,
+    },
+    user.jwt_secret,
+  );
 
-  res.cookie("temp-session-id", temSessionId, {
+  res.cookie("temp-session-id", token, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  const csrfToken = generateCSRFToken(token);
+
+  res.cookie("XSRF-TOKEN", csrfToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: false,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
@@ -233,6 +251,8 @@ const loginController = asyncHandler(async (req, res) => {
 
   delete userInfo?.password;
   delete userInfo?.jwt_secret;
+
+  await otpStatusController(req, res);
 
   return res.status(200).json({
     user: userInfo,
@@ -288,16 +308,6 @@ const loginController = asyncHandler(async (req, res) => {
   //   httpOnly: true,
   //   secure: process.env.NODE_ENV === "production",
   //   sameSite: "lax",
-  // });
-
-  // const csrfToken = generateCSRFToken(token);
-
-  // res.cookie("XSRF-TOKEN", csrfToken, {
-  //   maxAge: 3 * 24 * 60 * 60 * 1000,
-  //   expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-  //   httpOnly: false,
-  //   sameSite: "lax",
-  //   secure: process.env.NODE_ENV === "production",
   // });
 
   // const userInfo = user;
@@ -748,6 +758,278 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 // Option 2 : Send Email to Recovery email.
 // Option 3 : Send OTP on phone number or email address(registered email address)
 // Option 4 : Add All the above
+
+const sendEmail = asyncHandler(
+  async (userId, otpType, otp, otpHash, expiresAt, email) => {
+    await send(email, otp);
+    const query = {
+      name: "create-temp-session",
+      text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_TEMP_SESSION}(user_id,otp_type,otp_hash,expires_at) VALUES($1,$2,$3,$4)`,
+      values: [userId, otpType, otpHash, expiresAt],
+    };
+
+    const result = await pool.query(query);
+
+    console.log(result);
+  },
+);
+
+const otpStatusController = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const tempSessionId = req.tempSessionId ?? null;
+
+  const { otp_type } = req.body;
+
+  // const tempSessionId = req?.cookies?.["temp-session-id"] ?? null;
+
+  let screenShow;
+  let message;
+
+  if (!user) {
+    return res
+      .status(400)
+      .json({ message: "User is not authorised, please login" });
+  }
+
+  const otpData = await getOtpData(user?.id, tempSessionId, otp_type);
+
+  if (!otpData) {
+    return res.status(400).json({ message: "Unable to fetch otp data" });
+  }
+
+  if (user?.verified) {
+    const data = {
+      screen: "verified",
+      message: "User is Verified",
+    };
+    return res.status(200).json({
+      data,
+      message: "",
+    });
+  }
+
+  const screenStatus = otpData?.rows[0];
+
+  const expiryTime = screenStatus?.expires_at;
+  const timeLeft =
+    expiryTime == null
+      ? null
+      : Math.floor((expiryTime - new Date()) / 1000 / 60);
+
+  const otpAttempts = Number(
+    await redisClient.get(`${otp_type}_attempts:${user?.id}`),
+  );
+
+  const isOTPthere = otpData?.rows[0]?.otp_hash;
+
+  // 2026-02-02 22:23:36
+
+  let response = 200;
+
+  switch (true) {
+    case timeLeft === null && isOTPthere:
+      screenShow = "otp";
+      message = "";
+      response = 200;
+      break;
+    case timeLeft === null:
+      screenShow = "email";
+      message = "";
+      response = 200;
+      break;
+    case timeLeft >= 0:
+      screenShow = "otp";
+      message = "";
+      response = 200;
+
+      break;
+    case timeLeft < 0:
+      screenShow = "otp";
+      message = "";
+      response = 200;
+      break;
+  }
+
+  const data = {
+    ...otpData?.rows[0],
+    otp_attempts: otpAttempts,
+    screen: screenShow,
+    error_message: message,
+  };
+
+  return res.status(response).json({
+    data,
+    message: message,
+  });
+});
+
+const generateOtp = asyncHandler(async (req, res) => {
+  const user = req?.user;
+  const tempSessionId = req.tempSessionId ?? null;
+
+  const { otp_type } = req.body;
+
+  // const tempSessionId = req?.cookies?.["temp-session-id"] ?? null;
+
+  if (!user) {
+    return res
+      .status(401)
+      .json({ message: "User is not authorised, please login" });
+  }
+
+  let otpAttempts = await redisClient.get(`${otp_type}_attempts:${user?.id}`);
+
+  if (otpAttempts !== null) {
+    if (Number(otpAttempts) === 0) {
+      return res.status(400).json({
+        message:
+          "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
+      });
+    } else {
+      otpAttempts = await redisClient.decrby(
+        `${otp_type}_attempts:${user?.id}`,
+        1,
+      );
+      await redisClient.del(`${otp_type}_verification_attempts:${user?.id}`);
+    }
+  } else {
+    await redisClient.set(
+      `${otp_type}_attempts:${user?.id}`,
+      2,
+      "EX",
+      60 * 60,
+      "NX",
+    );
+    otpAttempts = 2;
+    await resetOtpStatus(user?.id);
+  }
+
+  const otp = generateOTP(6);
+
+  const hashedOTP = await bcrypt.hash(otp, HASHED_SALT);
+  const otpCreationTime = new Date();
+  const otpExpiryTime = new Date(
+    otpCreationTime.getTime() + config.OTP_CONFIG[otp_type].expiry * 60 * 1000,
+  ).toISOString();
+
+  const userInfo = await generateOTPQuery(
+    user?.id,
+    tempSessionId,
+    otp_type,
+    hashedOTP,
+    otpExpiryTime,
+  );
+
+  if (!userInfo?.rowCount) {
+    return res.status(400).json({ message: "Error Generating OTP" });
+  }
+
+  const data = {
+    otp_attempts: otpAttempts,
+    otp_created_at: userInfo?.rows[0]?.otp_created_at,
+    screen: "otp",
+  };
+
+  return res.status(200).json({
+    data,
+    message: "OTP Sent Successfully",
+  });
+});
+
+const verifyOtp = asyncHandler(async (req, res) => {
+  try {
+    await otpVerificationSchema.validateAsync(req.body);
+  } catch (error) {
+    return res.status(400).json({ message: error?.details[0]?.message });
+  }
+
+  const user = req?.user;
+  const tempSessionId = req.tempSessionId ?? null;
+
+  const { otp_type, otp } = req?.body;
+
+  // const tempSessionId = req?.cookies?.["temp-session-id"] ?? null;
+
+  if (!user) {
+    return res
+      .status(401)
+      .json({ message: "User is not authorised, please login" });
+  }
+
+  const otpVerificationAttempts = await redisClient.get(
+    `${otp_type}_verification_attempts:${user?.id}`,
+  );
+
+  if (otpVerificationAttempts) {
+    if (Number(otpVerificationAttempts) === 0) {
+      await resetOtpStatus(user?.id);
+      return res.status(400).json({
+        message: "Too many attempts, please generate new otp",
+      });
+    }
+  } else {
+    await redisClient.set(
+      `${otp_type}_verification_attempts:${user?.id}`,
+      2,
+      "EX",
+      60 * 5,
+    );
+  }
+
+  // For updating veified status by checking expiration time and otp in single query
+
+  // const otpVerification = await otpVerificationQuery(user?.id, otp);
+
+  const otpFromDb = await getOTPQuery(user?.id, tempSessionId, otp_type);
+
+  if (otpFromDb.rowCount < 1) {
+    return res.status(400).json({
+      message: "OTP verification failed, kindly generate otp",
+    });
+  }
+
+  const dbOTP = otpFromDb?.rows[0]?.otp_hash;
+  const otpCreationTime = new Date();
+  const otpExpirationTime = otpFromDb?.rows[0]?.expires_at;
+
+  const isExpired =
+    otpCreationTime.getTime() > new Date(otpExpirationTime).getTime();
+
+  if (isExpired) {
+    return res.status(400).json({ message: "OTP is expired" });
+  }
+
+  const isMatch = await bcrypt.compare(otp, dbOTP);
+
+  if (!isMatch) {
+    await redisClient.decrby(
+      `${otp_type}_verification_attempts:${user?.id}`,
+      1,
+    );
+
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+
+  const userVerification = await updateVerifiedStatusQuery(user?.id);
+
+  if (userVerification.rowCount < 1) {
+    return res.status(400).json({
+      message: "OTP Vefication failed, please try again after sometime",
+    });
+  }
+
+  await redisClient.del(
+    `${otp_type}_verification_attempts:${user?.id}`,
+    `${otp_type}_attempts:${user?.id}`,
+  );
+
+  return res.status(200).json({
+    data: {
+      screen: "verified",
+      message: "OTP verification successful",
+    },
+  });
+});
 
 module.exports = {
   registerController,

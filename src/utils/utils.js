@@ -30,6 +30,12 @@ const generateToken = (userInfo, jwt_Secret) => {
   });
 };
 
+const generateTempSessionToken = (userInfo, jwt_Secret) => {
+  return jwt.sign(userInfo, jwt_Secret, {
+    expiresIn: "3d",
+  });
+};
+
 // To Generate Refresh Token
 const generateRefreshToken = () => {
   return crypto.randomBytes(JWT_SECRET_BYTES).toString("hex");
@@ -114,6 +120,7 @@ const send = async (recipent, otp) => {
 
 module.exports = {
   generateToken,
+  generateTempSessionToken,
   generateRefreshToken,
   generateCSRFToken,
   generateJWTSecret,

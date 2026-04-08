@@ -9,6 +9,7 @@ export const TABLE_SCHEMA = {
   ADMIN_AUTH: "admin.users",
   ADMIN_SESSION: "admin.user_sessions",
   ADMIN_TEMP_SESSION: "admin.temp_session",
+  ADMIN_OTP: "admin.otps",
 };
 
 export const JWT_SECRET_BYTES = 64;

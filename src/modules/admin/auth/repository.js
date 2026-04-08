@@ -66,6 +66,18 @@ const getUserById = async (id) => {
   return result;
 };
 
+const gettempSession = async (id) => {
+  const query = {
+    name: "get-temp-session-data",
+    text: `SELECT ts.temp_session_id, ts.user_id, u.id, u.jwt_secret FROM ${TABLE_SCHEMA?.ADMIN_TEMP_SESSION} ts INNER JOIN ${TABLE_SCHEMA?.ADMIN_AUTH} u ON u.id = ts.user_id WHERE ts.temp_session_id = $1`,
+    values: [id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
 const updateUserInfo = async (id, name, profilePhoto) => {
   const query = {
     name: "update-user-info",
@@ -77,21 +89,51 @@ const updateUserInfo = async (id, name, profilePhoto) => {
 
   return result;
 };
-
 const generateOTPQuery = async (
-  otp,
-  id,
-  otp_creation_time,
-  otp_expiry_time,
+  userId,
+  tempSessionId,
+  otp_type,
+  hashedOTP,
+  otpExpiryTime,
 ) => {
-  const query = {
-    name: "generate-otp-and-update-otp-attempts",
-    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET otp = $1, otp_created_at = $3, otp_expires_at = $4, is_otp_active = true WHERE id = $2 RETURNING otp_created_at`,
-    values: [otp, id, otp_creation_time, otp_expiry_time],
-  };
-  const result = await pool.query(query);
+  // NEW FLOW
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  return result;
+    // If an unused OTP already exists for this context, mark it used before creating a new one.
+    if (tempSessionId) {
+      await client.query(
+        `UPDATE ${TABLE_SCHEMA?.ADMIN_OTP}
+         SET is_used = TRUE
+         WHERE user_id = $1 AND temp_session_id = $2 AND otp_type = $3 AND is_used = FALSE`,
+        [userId, tempSessionId, otp_type],
+      );
+    } else {
+      await client.query(
+        `UPDATE ${TABLE_SCHEMA?.ADMIN_OTP}
+         SET is_used = TRUE
+         WHERE user_id = $1 AND otp_type = $2 AND is_used = FALSE`,
+        [userId, otp_type],
+      );
+    }
+
+    const insertResult = await client.query(
+      `INSERT INTO ${TABLE_SCHEMA?.ADMIN_OTP}
+       (user_id, temp_session_id, otp_type, otp_hash, expires_at, is_used)
+       VALUES ($1, $2, $3, $4, $5, FALSE)
+       RETURNING *`,
+      [userId, tempSessionId, otp_type, hashedOTP, otpExpiryTime],
+    );
+
+    await client.query("COMMIT");
+    return insertResult;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 const updateVerifiedStatusQuery = async (id) => {
@@ -106,11 +148,15 @@ const updateVerifiedStatusQuery = async (id) => {
   return result;
 };
 
-const getOTPQuery = async (id) => {
+const getOTPQuery = async (userId, tempSessionId, otp_type) => {
   const query = {
     name: "get-otp-for-verification",
-    text: `SELECT otp, otp_created_at, otp_expires_at,is_otp_active FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1`,
-    values: [id],
+    text: tempSessionId
+      ? `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND temp_session_id=$2 AND otp_type=$3 AND is_used=FALSE`
+      : `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND otp_type=$2 AND is_used=FALSE`,
+    values: tempSessionId
+      ? [userId, tempSessionId, otp_type]
+      : [userId, otp_type],
   };
 
   const result = await pool.query(query);
@@ -130,11 +176,15 @@ const otpVerificationQuery = async (id, otp) => {
   return result;
 };
 
-const getOtpData = async (id) => {
+const getOtpData = async (userId, tempSessionId, otp_type) => {
   const query = {
     name: "get-otp-data",
-    text: `SELECT otp_created_at,otp_expires_at,otp,is_otp_active, verified FROM ${TABLE_SCHEMA?.AUTH} WHERE id=$1`,
-    values: [id],
+    text: tempSessionId
+      ? `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND temp_session_id=$2 AND otp_type=$3 AND is_used=FALSE`
+      : `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND otp_type=$2 AND is_used=FALSE`,
+    values: tempSessionId
+      ? [userId, tempSessionId, otp_type]
+      : [userId, otp_type],
   };
 
   const result = await pool.query(query);
@@ -333,4 +383,6 @@ module.exports = {
   deleteSession,
 
   createTempSession,
+
+  gettempSession,
 };

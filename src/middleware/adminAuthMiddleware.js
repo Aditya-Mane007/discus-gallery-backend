@@ -1,13 +1,18 @@
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
-const { getUserById } = require("../modules/admin/auth/repository.js");
+const {
+  getUserById,
+  gettempSession,
+} = require("../modules/admin/auth/repository.js");
 const { verifyToken } = require("../utils/utils");
 const { clearAuthCookies } = require("../utils/constant.js");
 
 const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
-  console.log("REQ : ", req);
+  console.log("REQ COOKIES : ", req?.cookies);
   let csrf = req?.cookies?.["XSRF-TOKEN"];
-  let token = req?.cookies?.token;
+  let token = req?.cookies?.["temp-session-id"]
+    ? req?.cookies?.["temp-session-id"]
+    : req?.cookies?.token;
 
   if (!csrf) {
     res.status(400).json({ message: "Invalid request: csrf token required." });
@@ -31,7 +36,11 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
       return res.status(401).json({ message: "Invalid token" });
     }
 
-    const user = await getUserById(decodedToken?.payload?.id);
+    const user = req?.cookies?.["temp-session-id"]
+      ? await gettempSession(decodedToken?.payload?.temp_session_id)
+      : await getUserById(decodedToken?.payload?.id);
+
+    console.log("USER : ", user);
 
     if (user.rowCount === 0) {
       res.status(404);
@@ -45,6 +54,7 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
     delete userInfo?.jwt_secret;
 
     req.user = userInfo;
+    req.tempSessionId = userInfo?.temp_session_id;
 
     next();
   } catch (error) {
