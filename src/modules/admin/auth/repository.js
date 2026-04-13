@@ -195,7 +195,7 @@ const getOtpData = async (userId, tempSessionId, otp_type) => {
 const resetOtpStatus = async (id) => {
   const query = {
     name: "reset-otp-attempts",
-    text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET is_otp_active = false WHERE id=$1`,
+    text: `UPDATE ${TABLE_SCHEMA?.ADMIN_OTP} SET is_otp_active = false WHERE id=$1`,
     values: [id],
   };
 

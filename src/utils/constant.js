@@ -24,3 +24,7 @@ export const clearAuthCookies = (res) => {
   res.clearCookie("session-id");
   res.clearCookie("XSRF-TOKEN");
 };
+
+export const OTP_TYPE = {
+  LOGIN_VERIFICATION_OTP: "LOGIN_VERIFICATION_OTP",
+};

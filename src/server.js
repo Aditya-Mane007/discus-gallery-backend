@@ -12,29 +12,18 @@ const cookieParser = require("cookie-parser");
 const decryptionMiddleware = require("./middleware/decryptionMiddlware.js");
 const encryptionMiddleware = require("./middleware/encryptionMiddleware.js");
 const { generateJWTSecret, generateRefreshToken } = require("./utils/utils.js");
-const { HASHED_SALT } = require("./utils/constant.js");
+const { HASHED_SALT, OTP_TYPE } = require("./utils/constant.js");
 const {
   createUser,
   checkIfUsersExists,
 } = require("./modules/admin/auth/repository.js");
+const { config } = require("./config/config.js");
 
 const PORT = process.env.PORT || 5000;
 
 const app = express();
 
 // Middleware
-
-app.get("/server", (req, res) => {
-  console.log(
-    "REQ : ",
-    req.ip,
-    req.socket.remoteAddress,
-    req?.headers["sec-ch-ua-platform"].replaceAll("'", ""),
-  );
-  return res.status(201).json({
-    message: `Hello ${req?.headers["sec-ch-ua-platform"].replace(/["']/g, "")} User`,
-  });
-});
 
 //Returns middleware that only parses json and only looks at requests where the Content-Type header matches the type option.
 app.use(express.json());

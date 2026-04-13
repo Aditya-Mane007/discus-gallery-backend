@@ -9,6 +9,9 @@ const {
   otpVerificationController,
   getOtpStatusController,
   getRefreshToken,
+  otpStatusController,
+  generateOtp,
+  verifyOtp,
 } = require("./controller.js");
 
 const adminAuthMiddlware = require("../../../middleware/adminAuthMiddleware.js");
@@ -29,8 +32,8 @@ router.get("/getuser", adminAuthMiddlware, authoriseController);
 router.get("/refresh-token", getRefreshToken);
 
 // OTP
-router.get("/generateOTP", adminAuthMiddlware, generateOtpController);
-router.post("/verifyOTP", adminAuthMiddlware, otpVerificationController);
+router.get("/generateOTP", adminAuthMiddlware, generateOtp);
+router.post("/verifyOTP", adminAuthMiddlware, verifyOtp);
 router.get("/getOtpStatus", adminAuthMiddlware, getOtpStatusController);
 
 module.exports = router;

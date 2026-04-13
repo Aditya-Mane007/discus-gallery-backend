@@ -1,6 +1,6 @@
 export const config = {
   OTP_CONFIG: {
-    LOGIN: {
+    LOGIN_VERIFICATION_OTP: {
       max_attempts: Number(process.env.LOGIN_MAX_ATTEMPTS ?? 3),
       verification_attempts: Number(
         process.env.LOGIN_VERIFICATION_ATTEMPTS ?? 3,

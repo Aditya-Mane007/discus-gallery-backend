@@ -8,7 +8,6 @@ const { verifyToken } = require("../utils/utils");
 const { clearAuthCookies } = require("../utils/constant.js");
 
 const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
-  console.log("REQ COOKIES : ", req?.cookies);
   let csrf = req?.cookies?.["XSRF-TOKEN"];
   let token = req?.cookies?.["temp-session-id"]
     ? req?.cookies?.["temp-session-id"]
@@ -39,8 +38,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
     const user = req?.cookies?.["temp-session-id"]
       ? await gettempSession(decodedToken?.payload?.temp_session_id)
       : await getUserById(decodedToken?.payload?.id);
-
-    console.log("USER : ", user);
 
     if (user.rowCount === 0) {
       res.status(404);
