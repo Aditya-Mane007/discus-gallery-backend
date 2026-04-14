@@ -91,9 +91,8 @@ const decryptPayload = (payload) => {
   }
 };
 
-const generateOTP = (length) => {
+const generateOTP = () => {
   const otp = crypto.randomInt(100000, 1000000);
-
   return otp;
 };
 

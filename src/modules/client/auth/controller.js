@@ -590,7 +590,7 @@ const generateOtpController = asyncHandler(async (req, res) => {
     await resetOtpStatus(user?.id);
   }
 
-  const otp = generateOTP(6);
+  const otp = generateOTP();
   const otpCreationTime = new Date();
   const otpExpiryTime = new Date(
     otpCreationTime.getTime() + OTP_EXPIRY_TIME * 60 * 1000,
