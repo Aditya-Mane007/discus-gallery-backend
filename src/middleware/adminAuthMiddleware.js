@@ -14,7 +14,9 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
     : req?.cookies?.token;
 
   if (!csrf) {
-    res.status(400).json({ message: "Invalid request: csrf token required." });
+    return res
+      .status(400)
+      .json({ message: "Invalid request: csrf token required." });
   }
 
   if (!token) {
@@ -39,7 +41,7 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
       ? await gettempSession(decodedToken?.payload?.temp_session_id)
       : await getUserById(decodedToken?.payload?.id);
 
-    if (user.rowCount === 0) {
+    if (!user || user.rowCount === 0) {
       res.status(404);
       throw new Error("Unable to retrieve user account.");
     }

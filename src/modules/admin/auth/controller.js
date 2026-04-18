@@ -259,6 +259,8 @@ const loginController = asyncHandler(async (req, res) => {
 
   const otp = generateOTP();
 
+  console.log("OTP : ", otp);
+
   const hashedOTP = await bcrypt.hash(otp.toString(), HASHED_SALT);
   const otpCreationTime = new Date();
   const otpExpiryTime = new Date(
@@ -1162,11 +1164,17 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   let screenShow;
   let message;
 
-  const otpAttempts = await redisClient.get(`otp_request_count:${user?.id}`);
+  const otpAttempts = user?.id
+    ? await redisClient.get(`otp_request_count:${user?.id}`)
+    : 0;
 
-  const otpData = JSON.parse(
-    await redisClient.get(`temp_session:${tempSessionId}`),
-  );
+  let otpData = null;
+  if (tempSessionId) {
+    const sessionString = await redisClient.get(
+      `temp_session:${tempSessionId}`,
+    );
+    otpData = sessionString ? JSON.parse(sessionString) : null;
+  }
 
   const expiryTime = otpData?.expires_at;
 
@@ -1182,29 +1190,30 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   let response = 200;
 
-  //  (await redisClient.get(`otp:${user?.id}`)) !== null
-  switch (true) {
-    case timeLeft === null:
-      screenShow = "otp";
-      message = "";
-      response = 200;
-      break;
-    case timeLeft === null:
-      screenShow = "email";
-      message = "";
-      response = 200;
-      break;
-    case timeLeft >= 0:
-      screenShow = "otp";
-      message = "";
-      response = 200;
+  const isOTPthere = user?.id ? await redisClient.get(`otp:${user?.id}`) : null;
 
-      break;
-    case timeLeft < 0:
-      screenShow = "otp";
-      message = "";
-      response = 200;
-      break;
+  if (!isOTPthere) {
+    screenShow = "otp";
+    message = "";
+    response = 200;
+  } else {
+    switch (true) {
+      case timeLeft === null && otpData !== null:
+        screenShow = "otp";
+        message = "";
+        response = 200;
+        break;
+      case timeLeft >= 0:
+        screenShow = "otp";
+        message = "";
+        response = 200;
+        break;
+      case timeLeft < 0:
+        screenShow = "otp";
+        message = "";
+        response = 200;
+        break;
+    }
   }
 
   const data = {
@@ -1239,31 +1248,52 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       .json({ message: "User is not authorised, please login" });
   }
 
-  const otpFromDb = await redisClient.get(`otp:${user?.id}`);
-  const otpAttempts = await redisClient.get(
-    `otp_verify_attempts:${tempSessionId}`,
-  );
+  const otpFromDb = user?.id ? await redisClient.get(`otp:${user?.id}`) : null;
+  const otpAttempts = tempSessionId
+    ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
+    : null;
 
   console.log("otpFromDb : ", otpFromDb);
 
   if (Number(otpAttempts) === 0) {
+    if (user?.id) await redisClient.del(`otp:${user?.id}`);
     return res.status(400).json({
-      is_otp_expired: false,
+      is_otp_active: false,
+      can_resend: true,
+      screen: "otp",
       message: "Too many otp verification attempts, please generate new otp",
     });
   }
 
   if (!otpFromDb) {
     return res.status(400).json({
-      is_otp_expired: false,
+      is_otp_active: false,
+      can_resend: true,
+      screen: "otp",
       message: "otp is expired, please generate new otp",
     });
   }
 
-  const isOtpValid = await bcrypt.compare(otp, otpFromDb);
+  const isOtpValid = await bcrypt.compare(String(otp), otpFromDb);
+
+  console.log(isOtpValid, await bcrypt.hash(otp.toString(), HASHED_SALT));
 
   if (!isOtpValid) {
-    await redisClient.decrby(`otp_verify_attempts:${tempSessionId}`, 1);
+    const remainingAttempts = await redisClient.decrby(
+      `otp_verify_attempts:${tempSessionId}`,
+      1,
+    );
+
+    if (remainingAttempts <= 0) {
+      if (user?.id) await redisClient.del(`otp:${user?.id}`);
+      return res.status(400).json({
+        is_otp_active: false,
+        can_resend: true,
+        screen: "otp",
+        message: "Too many otp verification attempts, please generate new otp",
+      });
+    }
+
     return res.status(400).json({
       message: "Invalid otp,please enter a valid otp",
     });
