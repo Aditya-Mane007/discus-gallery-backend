@@ -216,11 +216,14 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const user = userExists.rows[0];
+  const cooldownKey = `otp_cooldown:${user?.id}`;
+  await redisClient.del(`${cooldownKey}`);
+
   const attemptsKey = Number(
     await redisClient.get(`otp_request_count:${user?.id}`),
   );
 
-  if (attemptsKey !== null && attemptsKey <= 0) {
+  if (attemptsKey && attemptsKey <= 0) {
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
     return res.status(400).json({
@@ -514,9 +517,12 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   const tempSessionId = req.tempSessionId ?? null;
 
   if (!user && !tempSessionId) {
-    return res
-      .status(400)
-      .json({ message: "User is not authorised, please login" });
+    clearAuthCookies(res);
+    res.clearCookie("temp-session-id");
+    return res.status(400).json({
+      message: "User is not authorised, please login",
+      redirectTo: "/login",
+    });
   }
 
   let screenShow;
@@ -603,9 +609,10 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   const { otp } = req.body;
 
   if (!userInfo && !tempSessionId) {
-    return res
-      .status(400)
-      .json({ message: "User is not authorised, please login" });
+    return res.status(400).json({
+      message: "User is not authorised, please login",
+      redirectTo: "/login",
+    });
   }
 
   const otpFromDb = userInfo?.id
@@ -616,7 +623,11 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     : null;
 
   if (Number(otpAttempts) === 0) {
-    if (userInfo?.id) await redisClient.del(`otp:${userInfo?.id}`);
+    if (userInfo?.id) {
+      await redisClient.del(`otp:${userInfo?.id}`);
+      const cooldownKey = `otp_cooldown:${userInfo?.id}`;
+      await redisClient.del(`${cooldownKey}`);
+    }
     return res.status(400).json({
       is_otp_active: false,
       can_resend: true,
@@ -733,9 +744,10 @@ const generateOtpController = asyncHandler(async (req, res) => {
   const tempSessionId = req.tempSessionId ?? null;
 
   if (!user && !tempSessionId) {
-    return res
-      .status(400)
-      .json({ message: "User is not authorised, please login" });
+    return res.status(400).json({
+      message: "User is not authorised, please login",
+      redirectTo: "/login",
+    });
   }
 
   const otpService = await generate2FAOTPService(
