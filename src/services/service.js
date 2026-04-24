@@ -150,8 +150,11 @@ export const generate2FAOTPService = async (
   // 8. ⏳ Cooldown
   await redisClient.set(cooldownKey, "true", "EX", 60);
 
+  console.log("userInfo : ", userInfo);
+
   return res.status(200).json({
     otpAttempts: Number(remaining),
+    data: userInfo,
     message: "OTP sent successfully",
   });
 };

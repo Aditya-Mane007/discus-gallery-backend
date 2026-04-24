@@ -527,6 +527,7 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   let screenShow;
   let message;
+  let is_otp_active = false;
 
   const otpAttempts = user?.id
     ? await redisClient.get(`otp_request_count:${user?.id}`)
@@ -540,7 +541,11 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
     otpData = sessionString ? JSON.parse(sessionString) : null;
   }
 
-  const expiryTime = otpData?.expires_at;
+  const cooldownKey = `otp_cooldown:${user?.id}`;
+
+  const expiryTime = (await redisClient.get(`${cooldownKey}`))
+    ? otpData?.expires_at
+    : null;
 
   const timeLeft =
     expiryTime == null
@@ -565,27 +570,34 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
       case timeLeft === null && otpData !== null:
         screenShow = "otp";
         message = "";
+        is_otp_active = false;
         response = 200;
         break;
       case timeLeft >= 0:
         screenShow = "otp";
         message = "";
         response = 200;
+        is_otp_active = true;
+
         break;
       case timeLeft < 0:
         screenShow = "otp";
         message = "";
         response = 200;
+        is_otp_active = false;
         break;
     }
   }
 
   const data = {
     ...otpData,
+    is_otp_active,
     otp_attempts: otpAttempts,
     screen: screenShow,
     error_message: message,
   };
+
+  console.log("DATA : ", data);
 
   return res.status(response).json({
     data,
@@ -654,7 +666,10 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     );
 
     if (remainingAttempts <= 0) {
-      if (userInfo?.id) await redisClient.del(`otp:${userInfo?.id}`);
+      await redisClient.del(`otp:${userInfo?.id}`);
+      const cooldownKey = `otp_cooldown:${userInfo?.id}`;
+      await redisClient.del(`${cooldownKey}`);
+
       return res.status(400).json({
         is_otp_active: false,
         can_resend: true,
