@@ -130,6 +130,8 @@ export const generate2FAOTPService = async (
   // ✅ 4. NOW generate OTP
   const otp = generateOTP();
 
+  console.log("2FA OTP : ", otp);
+
   const hashedOTP = await bcrypt.hash(otp.toString(), HASHED_SALT);
 
   // 5. 🔁 Store OTP
@@ -144,7 +146,6 @@ export const generate2FAOTPService = async (
     JSON.stringify(userInfo),
     "EX",
     600,
-    "NX",
   );
 
   // 8. ⏳ Cooldown

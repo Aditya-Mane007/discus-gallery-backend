@@ -529,8 +529,8 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   let message;
   let is_otp_active = false;
 
-  const otpAttempts = user?.id
-    ? await redisClient.get(`otp_request_count:${user?.id}`)
+  const otpAttempts = tempSessionId
+    ? Number(await redisClient.get(`otp_verify_attempts:${tempSessionId}`) ?? 0)
     : 0;
 
   let otpData = null;
@@ -559,12 +559,17 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   let response = 200;
 
-  const isOTPthere = user?.id ? await redisClient.get(`otp:${user?.id}`) : null;
+  const isOTPthere = user?.id
+    ? (await redisClient.get(`otp:${user?.id}`)) && cooldownKey
+    : null;
+
+  console.log("isOTPthere : ", isOTPthere);
 
   if (!isOTPthere) {
     screenShow = "otp";
     message = "";
     response = 200;
+    is_otp_active = false;
   } else {
     switch (true) {
       case timeLeft === null && otpData !== null:
@@ -596,6 +601,11 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
     screen: screenShow,
     error_message: message,
   };
+
+  if (!is_otp_active) {
+    data.expires_at = null;
+    data.created_at = null;
+  }
 
   console.log("DATA : ", data);
 
@@ -640,9 +650,13 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       const cooldownKey = `otp_cooldown:${userInfo?.id}`;
       await redisClient.del(`${cooldownKey}`);
     }
+    if (tempSessionId) {
+      await redisClient.del(`temp_session:${tempSessionId}`);
+    }
     return res.status(400).json({
       is_otp_active: false,
       can_resend: true,
+      otp_attempts: 0,
       screen: "otp",
       message: "Too many otp verification attempts, please generate new otp",
     });
@@ -669,16 +683,21 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       await redisClient.del(`otp:${userInfo?.id}`);
       const cooldownKey = `otp_cooldown:${userInfo?.id}`;
       await redisClient.del(`${cooldownKey}`);
+      if (tempSessionId) {
+        await redisClient.del(`temp_session:${tempSessionId}`);
+      }
 
       return res.status(400).json({
         is_otp_active: false,
         can_resend: true,
+        otp_attempts: 0,
         screen: "otp",
         message: "Too many otp verification attempts, please generate new otp",
       });
     }
 
     return res.status(400).json({
+      otp_attempts: remainingAttempts,
       message: "Invalid otp,please enter a valid otp",
     });
   }
