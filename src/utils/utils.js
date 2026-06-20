@@ -10,23 +10,30 @@ const { JWT_SECRET_BYTES, HASHED_SALT } = require("./constant");
 const bcrypt = require("bcrypt");
 
 // To compare csrf token
-const compareToken = (recievedToken, generatedToken) => {
-  if (recievedToken.length !== generatedToken.length) {
-    return false;
-  }
+// const compareToken = (recievedToken, generatedToken) => {
+//   if (recievedToken.length !== generatedToken.length) {
+//     return false;
+//   }
 
-  let result = 0;
-  for (let i = 0; i < recievedToken.length; i++) {
-    result |= recievedToken.charAt(i) ^ generatedToken.charAt(i);
-  }
+//   let result = 0;
+//   for (let i = 0; i < recievedToken.length; i++) {
+//     result |= recievedToken.charAt(i) ^ generatedToken.charAt(i);
+//   }
 
-  return result === 0;
+//   return result === 0;
+// };
+
+const compareToken = (receivedToken, generatedToken) => {
+  return crypto.timingSafeEqual(
+    Buffer.from(receivedToken),
+    Buffer.from(generatedToken),
+  );
 };
 
 // Generate JWT Token
 const generateToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
-    expiresIn: "1m",
+    expiresIn: "15m",
   });
 };
 
@@ -57,13 +64,25 @@ const generateJWTSecret = () => {
 };
 
 // To verify/compare/check token received token, generated csrf token from(received jwt token)
+// const verifyToken = (jwtToken, receivedCSRFtoken) => {
+//   const hashedToken = crypto
+//     .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
+//     .update(jwtToken)
+//     .digest("hex");
+
+//   return compareToken(receivedCSRFtoken, hashedToken);
+// };
+
 const verifyToken = (jwtToken, receivedCSRFtoken) => {
   const hashedToken = crypto
     .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
     .update(jwtToken)
     .digest("hex");
 
-  return compareToken(receivedCSRFtoken, hashedToken);
+  return crypto.timingSafeEqual(
+    Buffer.from(receivedCSRFtoken),
+    Buffer.from(hashedToken),
+  );
 };
 
 const encryptPayload = (payload) => {

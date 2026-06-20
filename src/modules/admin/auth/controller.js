@@ -77,7 +77,7 @@ const setRefreshCookies = (res, sessionId, token, refreshToken, csrfToken) => {
 
   res.cookie("refresh-token", refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    expires: new Date(Date.now() + 30 * 24 * 3600 * 1000),
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -154,7 +154,7 @@ const registerController = asyncHandler(async (req, res) => {
 
   res.cookie("refresh-token", refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    expires: new Date(Date.now() + 30 * 24 * 3600 * 1000),
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -216,14 +216,12 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const user = userExists.rows[0];
+  console.log("USer : ", user);
   const cooldownKey = `otp_cooldown:${user?.id}`;
   await redisClient.del(`${cooldownKey}`);
 
-  const attemptsKey = Number(
-    await redisClient.get(`otp_request_count:${user?.id}`),
-  );
-
-  if (attemptsKey && attemptsKey <= 0) {
+  const attemptsKey = await redisClient.get(`otp_request_count:${user?.id}`);
+  if (attemptsKey && Number(attemptsKey) <= 0) {
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
     return res.status(400).json({
@@ -462,7 +460,7 @@ const getUserController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(400)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: "User is not authorised, please login 1" });
   }
 
   const userInfo = await getUserById(user?.id);
@@ -484,7 +482,7 @@ const updateUserController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(400)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: "User is not authorised, please login 2" });
   }
 
   try {
@@ -520,7 +518,7 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
     return res.status(400).json({
-      message: "User is not authorised, please login",
+      message: "User is not authorised, please login 3",
       redirectTo: "/login",
     });
   }
@@ -529,9 +527,17 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   let message;
   let is_otp_active = false;
 
-  const otpAttempts = tempSessionId
-    ? Number(await redisClient.get(`otp_verify_attempts:${tempSessionId}`) ?? 0)
-    : 0;
+  const otpRequestCountVal = await redisClient.get(
+    `otp_request_count:${user?.id}`,
+  );
+  const otpAttempts =
+    otpRequestCountVal !== null ? Number(otpRequestCountVal) : 3;
+
+  const otpVerifyAttemptsVal = tempSessionId
+    ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
+    : null;
+  const otpVerifyAttempts =
+    otpVerifyAttemptsVal !== null ? Number(otpVerifyAttemptsVal) : 3;
 
   let otpData = null;
   if (tempSessionId) {
@@ -559,9 +565,10 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   let response = 200;
 
-  const isOTPthere = user?.id
-    ? (await redisClient.get(`otp:${user?.id}`)) && cooldownKey
-    : null;
+  const isOTPthere =
+    user?.id && otpVerifyAttempts > 0
+      ? await redisClient.get(`otp:${user?.id}`)
+      : null;
 
   console.log("isOTPthere : ", isOTPthere);
 
@@ -628,11 +635,28 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const tempSessionId = req.tempSessionId ?? null;
 
+  console.log(userInfo, tempSessionId);
+
   const { otp } = req.body;
 
   if (!userInfo && !tempSessionId) {
+    clearAuthCookies(res);
     return res.status(400).json({
-      message: "User is not authorised, please login",
+      message: "User is not authorised, please login 4",
+      redirectTo: "/login",
+    });
+  }
+
+  const tempSessionIdRedis = await redisClient.get(
+    `temp_session:${tempSessionId}`,
+  );
+
+  console.log("tempSessionIdRedis : ", tempSessionIdRedis);
+
+  if (!tempSessionIdRedis) {
+    clearAuthCookies(res);
+    return res.status(400).json({
+      message: "User is not authorised, please login 5",
       redirectTo: "/login",
     });
   }
@@ -640,23 +664,29 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   const otpFromDb = userInfo?.id
     ? await redisClient.get(`otp:${userInfo?.id}`)
     : null;
-  const otpAttempts = tempSessionId
+
+  const otpVerifyAttemptsVal = tempSessionId
     ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
     : null;
+  const otpVerifyAttempts =
+    otpVerifyAttemptsVal !== null ? Number(otpVerifyAttemptsVal) : 3;
 
-  if (Number(otpAttempts) === 0) {
+  const otpRequestCountVal = await redisClient.get(
+    `otp_request_count:${user?.id}`,
+  );
+  const otpAttempts =
+    otpRequestCountVal !== null ? Number(otpRequestCountVal) : 3;
+
+  if (otpVerifyAttempts <= 0) {
     if (userInfo?.id) {
       await redisClient.del(`otp:${userInfo?.id}`);
       const cooldownKey = `otp_cooldown:${userInfo?.id}`;
       await redisClient.del(`${cooldownKey}`);
     }
-    if (tempSessionId) {
-      await redisClient.del(`temp_session:${tempSessionId}`);
-    }
     return res.status(400).json({
       is_otp_active: false,
       can_resend: true,
-      otp_attempts: 0,
+      otp_attempts: otpAttempts,
       screen: "otp",
       message: "Too many otp verification attempts, please generate new otp",
     });
@@ -666,6 +696,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     return res.status(400).json({
       is_otp_active: false,
       can_resend: true,
+      otp_attempts: otpAttempts,
       screen: "otp",
       message: "otp is expired, please generate new otp",
     });
@@ -679,30 +710,35 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       1,
     );
 
+    console.log("remainingAttempts : ", remainingAttempts);
+
     if (remainingAttempts <= 0) {
       await redisClient.del(`otp:${userInfo?.id}`);
       const cooldownKey = `otp_cooldown:${userInfo?.id}`;
       await redisClient.del(`${cooldownKey}`);
-      if (tempSessionId) {
-        await redisClient.del(`temp_session:${tempSessionId}`);
-      }
 
       return res.status(400).json({
         is_otp_active: false,
         can_resend: true,
-        otp_attempts: 0,
+        otp_attempts: otpAttempts,
         screen: "otp",
         message: "Too many otp verification attempts, please generate new otp",
       });
     }
 
     return res.status(400).json({
-      otp_attempts: remainingAttempts,
+      is_otp_active: true,
+      otp_attempts: otpAttempts,
       message: "Invalid otp,please enter a valid otp",
     });
   }
 
+  // OTP verified successfully!
   await redisClient.del(`otp:${userInfo?.id}`);
+  await redisClient.del(`otp_request_count:${userInfo?.id}`);
+  await redisClient.del(`otp_cooldown:${userInfo?.id}`);
+  await redisClient.del(`otp_verify_attempts:${tempSessionId}`);
+  await redisClient.del(`temp_session:${tempSessionId}`);
 
   const refreshToken = generateRefreshToken();
 
@@ -735,13 +771,22 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
 
+  const csrfToken = generateCSRFToken(token);
+
+  res.cookie("XSRF-TOKEN", csrfToken, {
+    maxAge: 3 * 24 * 60 * 60 * 1000,
+    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    httpOnly: false,
+    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });
 
   res.cookie("refresh-token", refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+    expires: new Date(Date.now() + 30 * 24 * 3600 * 1000),
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -767,7 +812,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     accessToken: token,
     user: userInfo,
     redirectTo: "/",
-    // message: "Logged In Successfully",
   });
 });
 
@@ -779,7 +823,7 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   if (!user && !tempSessionId) {
     return res.status(400).json({
-      message: "User is not authorised, please login",
+      message: "User is not authorised, please login 6",
       redirectTo: "/login",
     });
   }
