@@ -281,3 +281,42 @@ CREATE TABLE admin.users (
         REFERENCES admin.users(user_id)
         ON DELETE SET NULL
 );
+
+CREATE TABLE admin.user_sessions(
+
+    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_id UUID NOT NULL,
+
+    refresh_token_hash TEXT NOT NULL,
+
+    session_secret TEXT NOT NULL,
+
+    device_name TEXT NOT NULL,
+
+    ip_address INET NOT NULL,
+
+    user_agent TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    last_activity_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    revoked_at TIMESTAMPTZ,
+
+    revoked_by UUID,
+
+    CONSTRAINT fk_user
+        FOREIGN KEY(user_id)
+        REFERENCES admin.users(user_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_revoked_by
+        FOREIGN KEY(revoked_by)
+        REFERENCES admin.users(user_id)
+        ON DELETE SET NULL
+);
