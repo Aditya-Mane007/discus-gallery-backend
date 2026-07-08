@@ -43,7 +43,9 @@ SCHEMA_FILES=(
 )
 
 # Seed files (Executed after all schemas)
-SEED_FILES=()
+SEED_FILES=(
+    "src/modules/admin/auth/seed-data/auth-seed-data.js"
+)
 
 execute_sql_files() {
     local files=("$@")
@@ -68,11 +70,30 @@ execute_sql_files() {
     done
 }
 
+execute_js_files(){
+    local files=("$@")
+
+    for file in "${files[@]}"; do
+        if [[ ! -f "$file" ]]; then
+            echo "❌ File not found: $file"
+            exit 1
+        fi
+
+        echo "▶ Executing $file..."
+
+        node "$file"
+
+        echo "✔ Done"
+        echo
+    done
+}
+
 echo "========================================"
 echo "Creating database schema..."
 echo "========================================"
 
 execute_sql_files "${SCHEMA_FILES[@]}"
+execute_js_files "${SEED_FILES[@]}"
 
 # echo "Seeding default data..."
 # execute_sql_files "${SEED_FILES[@]}"

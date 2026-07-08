@@ -12,12 +12,12 @@ const registerSchema = Joi.object({
       /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/,
     )
     .min(5)
-    .max(15)
+    .max(50)
     .required()
     .messages({
       "string.base": "Password must be a string",
       "string.min": "Password must be at least 5 characters",
-      "string.max": "Password must be at most 15 characters",
+      "string.max": "Password must be at most 50 characters",
       "any.required": "Password cannot be empty",
       "string.empty": "Password cannot be empty",
       "string.pattern.base":
@@ -46,12 +46,12 @@ const loginSchema = Joi.object({
       /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/,
     )
     .min(5)
-    .max(15)
+    .max(50)
     .required()
     .messages({
       "string.base": "Password must be a string",
       "string.min": "Password must be at least 5 characters",
-      "string.max": "Password must be at most 15 characters",
+      "string.max": "Password must be at most 50 characters",
       "any.required": "Password cannot be empty",
       "string.empty": "Password cannot be empty",
       "string.pattern.base":
@@ -86,7 +86,7 @@ const resetPasswordSchema = Joi.object({
     .messages({
       "string.base": "Password must be a string",
       "string.min": "Password must be at least 5 characters",
-      "string.max": "Password must be at most 15 characters",
+      "string.max": "Password must be at most 50 characters",
       "any.required": "Password cannot be empty",
       "string.empty": "Password cannot be empty",
       "string.pattern.base":

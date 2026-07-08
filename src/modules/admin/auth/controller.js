@@ -29,6 +29,7 @@ const {
   generateJWTSecret,
   generateRefreshToken,
   generateTempSessionToken,
+  generateUUID,
 } = require("../../../utils/utils.js");
 const {
   registerSchema,
@@ -208,7 +209,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const checkPassword = await bcrypt.compare(
     password,
-    userExists.rows[0].password,
+    userExists.rows[0].password_hash,
   );
 
   if (!checkPassword) {
@@ -217,10 +218,12 @@ const loginController = asyncHandler(async (req, res) => {
 
   const user = userExists.rows[0];
   console.log("USer : ", user);
-  const cooldownKey = `otp_cooldown:${user?.id}`;
+  const cooldownKey = `otp_cooldown:${user?.user_id}`;
   await redisClient.del(`${cooldownKey}`);
 
-  const attemptsKey = await redisClient.get(`otp_request_count:${user?.id}`);
+  const attemptsKey = await redisClient.get(
+    `otp_request_count:${user?.user_id}`,
+  );
   if (attemptsKey && Number(attemptsKey) <= 0) {
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
@@ -235,13 +238,14 @@ const loginController = asyncHandler(async (req, res) => {
 
   const ip = req?.ip || req?.socket?.remoteAddress;
 
-  const tempSession = await createTempSession(user?.id, deviceName, ip);
+  // Remove
+  // const tempSession = await createTempSession(user?.id, deviceName, ip);
 
-  const temSessionId = tempSession.rows[0]?.temp_session_id;
+  const temSessionId = generateUUID();
 
   const token = generateTempSessionToken(
     {
-      id: user?.id,
+      id: user?.user_id,
       temp_session_id: temSessionId,
     },
     user.jwt_secret,
@@ -267,7 +271,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const userInfo = user;
 
-  delete userInfo?.password;
+  delete userInfo?.password_hash;
   delete userInfo?.jwt_secret;
 
   const otpCreationTime = new Date();
@@ -292,7 +296,7 @@ const loginController = asyncHandler(async (req, res) => {
   // );
 
   await generate2FAOTPService(
-    userInfo?.id,
+    userInfo?.user_id,
     temSessionId,
     OTP_TYPE?.LOGIN_VERIFICATION_OTP,
     res,

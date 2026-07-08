@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS citext;
 CREATE TABLE IF NOT EXISTS admin.portal(
   portal_id UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   name CITEXT NOT NULL,
-  slug CITEXT NOT NULL,
+  slug CITEXT NOT NULL UNIQUE,
   description CITEXT NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS admin.users(
     profile_photo_url TEXT,
     portal_id UUID NOT NULL,
     permission_version INTEGER NOT NULL DEFAULT 1,
+    jwt_secret TEXT NOT NULL,
     is_root BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -46,7 +46,7 @@ const createUser = async (name, email, password, jwt_secret) => {
 const getUserByEmail = async (email) => {
   const query = {
     name: "get-user-by-email",
-    text: `SELECT id, email, profile_photo, password, verified, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE email=$1`,
+    text: `SELECT * FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE email=$1`,
     values: [email],
   };
   const result = await pool.query(query);

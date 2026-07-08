@@ -8,7 +8,7 @@ export const TABLE_SCHEMA = {
   // ADMIN
   ADMIN_AUTH: "admin.users",
   ADMIN_SESSION: "admin.user_sessions",
-  ADMIN_TEMP_SESSION: "admin.temp_session",
+  ADMIN_PORTAL: "admin.portal",
   ADMIN_OTP: "admin.otps",
 };
 

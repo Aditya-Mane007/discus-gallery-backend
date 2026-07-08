@@ -37,6 +37,11 @@ const generateToken = (userInfo, jwt_Secret) => {
   });
 };
 
+// Generate the UUID
+const generateUUID = () => {
+  return crypto.randomUUID();
+};
+
 const generateTempSessionToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
     expiresIn: "3d",
@@ -148,4 +153,5 @@ module.exports = {
   decryptPayload,
   generateOTP,
   send,
+  generateUUID,
 };

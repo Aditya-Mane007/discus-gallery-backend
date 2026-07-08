@@ -52,7 +52,7 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
 
     const user = req?.cookies?.["temp-session-id"]
       ? await gettempSession(decodedToken?.payload?.temp_session_id)
-      : await getUserById(decodedToken?.payload?.id);
+      : await getUserById(decodedToken?.payload?.user_id);
 
     if (!user || user.rowCount === 0) {
       res.status(404);
