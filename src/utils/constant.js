@@ -1,4 +1,7 @@
 export const OTP_EXPIRY_TIME = 5;
+export const OTP_VERIFICATION_ATTEMPTS = 3;
+export const PRE_AUTH_ATTEMPTS = 5;
+export const PRE_AUTH_ATTEMPTS_EXPIRY = 60; // 1 hour in seconds
 
 export const TABLE_SCHEMA = {
   AUTH: "auth.users",

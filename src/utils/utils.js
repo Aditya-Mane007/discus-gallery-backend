@@ -44,7 +44,7 @@ const generateUUID = () => {
 
 const generateTempSessionToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
-    expiresIn: "3d",
+    expiresIn: "5m",
   });
 };
 

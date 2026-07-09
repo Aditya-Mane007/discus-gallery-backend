@@ -44,6 +44,9 @@ const {
   HASHED_SALT,
   clearAuthCookies,
   OTP_TYPE,
+  OTP_VERIFICATION_ATTEMPTS,
+  PRE_AUTH_ATTEMPTS,
+  PRE_AUTH_ATTEMPTS_EXPIRY,
 } = require("../../../utils/constant.js");
 const { config } = require("../../../config/config.js");
 const {
@@ -212,6 +215,33 @@ const loginController = asyncHandler(async (req, res) => {
     userExists.rows[0].password_hash,
   );
 
+  const preauthAttemptCount = await redisClient.get(
+    `preauth:attempts:${userExists.rows[0]?.email}`,
+  );
+
+  console.log(
+    "preauthAttemptCount : ",
+    preauthAttemptCount,
+    typeof preauthAttemptCount,
+    Number(preauthAttemptCount),
+    Number(preauthAttemptCount) <= 0,
+    Number(preauthAttemptCount) > 0,
+  );
+
+  if (preauthAttemptCount !== null && Number(preauthAttemptCount) <= 0) {
+    return res.status(400).json({
+      message:
+        "You have reached the maximum number of login attempts. Try again after 1 hour.",
+    });
+  }
+
+  if (preauthAttemptCount !== null && Number(preauthAttemptCount) > 0) {
+    await redisClient.decrby(
+      `preauth:attempts:${userExists.rows[0]?.email}`,
+      1,
+    );
+  }
+
   if (!checkPassword) {
     return res.status(400).json({ message: "Invalid credentials" });
   }
@@ -241,14 +271,53 @@ const loginController = asyncHandler(async (req, res) => {
   // Remove
   // const tempSession = await createTempSession(user?.id, deviceName, ip);
 
-  const temSessionId = generateUUID();
+  const tempSessionSecret = await generateJWTSecret();
+  const temSessionId = await generateUUID();
+  const otp = await generateOTP();
+  const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS;
+  const preauthOtpAttempts = PRE_AUTH_ATTEMPTS - 1;
+
+  console.log(preauthOtpAttempts);
+
+  console.log("tempSessionSecret : ", tempSessionSecret);
+  console.log("temSessionId : ", temSessionId);
+
+  console.log(`Login OTP for ${user?.email}: `, otp);
+
+  const hashedOTP = await bcrypt.hash(otp.toString(), HASHED_SALT);
 
   const token = generateTempSessionToken(
     {
       id: user?.user_id,
       temp_session_id: temSessionId,
     },
-    user.jwt_secret,
+    tempSessionSecret,
+  );
+
+  console.log("Token : ", token);
+
+  const preauthattemptsKey = `preauth:attempts:${user?.email}`;
+
+  const preauthData = {
+    user_id: user?.user_id,
+    otp_hashed: hashedOTP,
+    temp_session_secret: tempSessionSecret,
+    otp_verification_attempts: otp_verification_attempts,
+  };
+
+  const preauthredisKey = await redisClient.set(
+    `preauth:${temSessionId}`,
+    JSON.stringify(preauthData),
+    "EX",
+    OTP_EXPIRY_TIME * 60,
+  );
+
+  await redisClient.set(
+    preauthattemptsKey,
+    preauthOtpAttempts,
+    "EX",
+    PRE_AUTH_ATTEMPTS_EXPIRY * 60,
+    "NX",
   );
 
   res.cookie("temp-session-id", token, {
@@ -274,11 +343,11 @@ const loginController = asyncHandler(async (req, res) => {
   delete userInfo?.password_hash;
   delete userInfo?.jwt_secret;
 
-  const otpCreationTime = new Date();
-  const otpExpiryTime = new Date(
-    otpCreationTime.getTime() +
-      config.OTP_CONFIG[OTP_TYPE?.LOGIN_VERIFICATION_OTP].expiry * 1000,
-  ).toISOString();
+  // const otpCreationTime = new Date();
+  // const otpExpiryTime = new Date(
+  //   otpCreationTime.getTime() +
+  //     config.OTP_CONFIG[OTP_TYPE?.LOGIN_VERIFICATION_OTP].expiry * 1000,
+  // ).toISOString();
 
   // await generateOTPService(
   //   userInfo?.id,
@@ -295,12 +364,12 @@ const loginController = asyncHandler(async (req, res) => {
   //   OTP_TYPE?.LOGIN_VERIFICATION_OTP,
   // );
 
-  await generate2FAOTPService(
-    userInfo?.user_id,
-    temSessionId,
-    OTP_TYPE?.LOGIN_VERIFICATION_OTP,
-    res,
-  );
+  // await generate2FAOTPService(
+  //   userInfo?.user_id,
+  //   temSessionId,
+  //   OTP_TYPE?.LOGIN_VERIFICATION_OTP,
+  //   res,
+  // );
 
   return res.status(200).json({
     user: userInfo,

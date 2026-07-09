@@ -58,9 +58,9 @@ app.use(
 //   await createUser(name, email, hashpassword, jwtSecret);
 // });
 
-app.use("/api", decryptionMiddleware);
+// app.use("/api", decryptionMiddleware);
 
-app.use("/api", encryptionMiddleware);
+// app.use("/api", encryptionMiddleware);
 
 app.use("/api", require("./routes/routes.js"));
 
