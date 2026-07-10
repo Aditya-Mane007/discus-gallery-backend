@@ -1,5 +1,6 @@
 const { TABLE_SCHEMA, SESSION_LIMIT } = require("../../../utils/constant.js");
 const { pool } = require("../../../config/db.js");
+const redisClient = require("../../../services/redisClient.js");
 
 const registerUserQuery = async () => {
   const result = await pool.query(`SELCET * FROM ${TABLE_SCHEMA.ADMIN_AUTH}`);
@@ -57,25 +58,53 @@ const getUserByEmail = async (email) => {
 const getUserById = async (id) => {
   const query = {
     name: "get-user-by-id",
-    text: `SELECT id, email, profile_photo, verified, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE id=$1`,
+    text: `SELECT user_id, name, email, profile_photo_url, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
     values: [id],
   };
-
   const result = await pool.query(query);
+  return result;
+};
 
+const getMeById = async (id) => {
+  const query = {
+    name: "get-me-by-id",
+    text: `SELECT user_id, name, email, profile_photo_url FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
+    values: [id],
+  };
+  const result = await pool.query(query);
   return result;
 };
 
 const gettempSession = async (id) => {
-  const query = {
-    name: "get-temp-session-data",
-    text: `SELECT ts.temp_session_id, ts.user_id, u.id, u.jwt_secret FROM ${TABLE_SCHEMA?.ADMIN_TEMP_SESSION} ts INNER JOIN ${TABLE_SCHEMA?.ADMIN_AUTH} u ON u.id = ts.user_id WHERE ts.temp_session_id = $1`,
-    values: [id],
-  };
+  const tempSessioKey = `preauth:${id}`;
+  const getTempSession = await redisClient.get(tempSessioKey);
+  const userInfo = JSON.parse(getTempSession);
+  const userData = (await getUserById(userInfo?.user_id)).rows[0];
+  if (getTempSession !== null) {
+    const tempSessionData = JSON.parse(getTempSession);
+    const res = {
+      rowCount: 1,
+      rows: [
+        {
+          ...tempSessionData,
+          name: userData?.name,
+          email: userData?.email,
+          profile_photo_url: userData?.profile_photo_url,
+          jwt_secret: tempSessionData?.temp_session_secret,
+          temp_session_id: id,
+        },
+      ],
+    };
 
-  const result = await pool.query(query);
+    return res;
+  } else {
+    const res = {
+      rowCount: 0,
+      rows: [],
+    };
 
-  return result;
+    return res;
+  }
 };
 
 const updateUserInfo = async (id, name, profilePhoto) => {
@@ -385,4 +414,5 @@ module.exports = {
   createTempSession,
 
   gettempSession,
+  getMeById,
 };

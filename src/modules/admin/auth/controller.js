@@ -21,6 +21,7 @@ const {
   createSession,
   checkRefreshToken,
   createTempSession,
+  getMeById,
 } = require("./repository.js");
 const {
   generateCSRFToken,
@@ -219,15 +220,6 @@ const loginController = asyncHandler(async (req, res) => {
     `preauth:attempts:${userExists.rows[0]?.email}`,
   );
 
-  console.log(
-    "preauthAttemptCount : ",
-    preauthAttemptCount,
-    typeof preauthAttemptCount,
-    Number(preauthAttemptCount),
-    Number(preauthAttemptCount) <= 0,
-    Number(preauthAttemptCount) > 0,
-  );
-
   if (preauthAttemptCount !== null && Number(preauthAttemptCount) <= 0) {
     return res.status(400).json({
       message:
@@ -247,7 +239,6 @@ const loginController = asyncHandler(async (req, res) => {
   }
 
   const user = userExists.rows[0];
-  console.log("USer : ", user);
   const cooldownKey = `otp_cooldown:${user?.user_id}`;
   await redisClient.del(`${cooldownKey}`);
 
@@ -268,21 +259,13 @@ const loginController = asyncHandler(async (req, res) => {
 
   const ip = req?.ip || req?.socket?.remoteAddress;
 
-  // Remove
-  // const tempSession = await createTempSession(user?.id, deviceName, ip);
-
   const tempSessionSecret = await generateJWTSecret();
   const temSessionId = await generateUUID();
   const otp = await generateOTP();
   const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS;
   const preauthOtpAttempts = PRE_AUTH_ATTEMPTS - 1;
 
-  console.log(preauthOtpAttempts);
-
-  console.log("tempSessionSecret : ", tempSessionSecret);
-  console.log("temSessionId : ", temSessionId);
-
-  console.log(`Login OTP for ${user?.email}: `, otp);
+  const can_resend_in = new Date().getTime() + 30 * 1000;
 
   const hashedOTP = await bcrypt.hash(otp.toString(), HASHED_SALT);
 
@@ -294,8 +277,6 @@ const loginController = asyncHandler(async (req, res) => {
     tempSessionSecret,
   );
 
-  console.log("Token : ", token);
-
   const preauthattemptsKey = `preauth:attempts:${user?.email}`;
 
   const preauthData = {
@@ -303,6 +284,7 @@ const loginController = asyncHandler(async (req, res) => {
     otp_hashed: hashedOTP,
     temp_session_secret: tempSessionSecret,
     otp_verification_attempts: otp_verification_attempts,
+    can_resend_in: can_resend_in,
   };
 
   const preauthredisKey = await redisClient.set(
@@ -338,41 +320,8 @@ const loginController = asyncHandler(async (req, res) => {
     secure: process.env.NODE_ENV === "production",
   });
 
-  const userInfo = user;
-
-  delete userInfo?.password_hash;
-  delete userInfo?.jwt_secret;
-
-  // const otpCreationTime = new Date();
-  // const otpExpiryTime = new Date(
-  //   otpCreationTime.getTime() +
-  //     config.OTP_CONFIG[OTP_TYPE?.LOGIN_VERIFICATION_OTP].expiry * 1000,
-  // ).toISOString();
-
-  // await generateOTPService(
-  //   userInfo?.id,
-  //   temSessionId,
-  //   OTP_TYPE?.LOGIN_VERIFICATION_OTP,
-  //   hashedOTP,
-  //   otpExpiryTime,
-  // );
-
-  // await generate2FAOTPService(
-  //   userInfo?.id,
-  //   temSessionId,
-  //   otp,
-  //   OTP_TYPE?.LOGIN_VERIFICATION_OTP,
-  // );
-
-  // await generate2FAOTPService(
-  //   userInfo?.user_id,
-  //   temSessionId,
-  //   OTP_TYPE?.LOGIN_VERIFICATION_OTP,
-  //   res,
-  // );
-
   return res.status(200).json({
-    user: userInfo,
+    redirectTo: "/verify-otp",
     message: "Logged In Successfully",
   });
 });
@@ -391,9 +340,17 @@ const logoutController = async (req, res) => {
 };
 
 // Get User
-const authoriseController = (req, res) => {
+const authoriseController = async (req, res) => {
+  const userData = (await getMeById(req?.user)).rows[0];
+  const userInfo = {
+    user_id: userData?.user_id,
+    name: userData?.name,
+    email: userData?.email,
+    profile_photo_url: userData?.profile_photo_url,
+  };
+  console.log("userInfo : ", userInfo);
   return res.status(200).json({
-    data: req.user,
+    data: { ...userInfo },
     message: "User Verification Successfull",
   });
 };
@@ -587,112 +544,122 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const tempSessionId = req.tempSessionId ?? null;
 
+  console.log("tempSessionId : ", tempSessionId);
+
   if (!user && !tempSessionId) {
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
     return res.status(400).json({
-      message: "User is not authorised, please login 3",
+      message: "User is not authorised, please login",
       redirectTo: "/login",
     });
   }
 
-  let screenShow;
-  let message;
-  let is_otp_active = false;
+  const tempSession = await redisClient.get(`preauth:${tempSessionId}`);
 
-  const otpRequestCountVal = await redisClient.get(
-    `otp_request_count:${user?.id}`,
-  );
-  const otpAttempts =
-    otpRequestCountVal !== null ? Number(otpRequestCountVal) : 3;
+  const tempSessionData = JSON.parse(tempSession);
 
-  const otpVerifyAttemptsVal = tempSessionId
-    ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
-    : null;
-  const otpVerifyAttempts =
-    otpVerifyAttemptsVal !== null ? Number(otpVerifyAttemptsVal) : 3;
+  console.log("TEMP SESSION DATA : ", tempSessionData);
 
-  let otpData = null;
-  if (tempSessionId) {
-    const sessionString = await redisClient.get(
-      `temp_session:${tempSessionId}`,
-    );
-    otpData = sessionString ? JSON.parse(sessionString) : null;
-  }
-
-  const cooldownKey = `otp_cooldown:${user?.id}`;
-
-  const expiryTime = (await redisClient.get(`${cooldownKey}`))
-    ? otpData?.expires_at
-    : null;
-
-  const timeLeft =
-    expiryTime == null
-      ? null
-      : Math.floor(
-          new Date(otpData?.expires_at).getTime() -
-            new Date(new Date().toISOString()).getTime(),
-        ) /
-        1000 /
-        60;
-
-  let response = 200;
-
-  const isOTPthere =
-    user?.id && otpVerifyAttempts > 0
-      ? await redisClient.get(`otp:${user?.id}`)
-      : null;
-
-  console.log("isOTPthere : ", isOTPthere);
-
-  if (!isOTPthere) {
-    screenShow = "otp";
-    message = "";
-    response = 200;
-    is_otp_active = false;
-  } else {
-    switch (true) {
-      case timeLeft === null && otpData !== null:
-        screenShow = "otp";
-        message = "";
-        is_otp_active = false;
-        response = 200;
-        break;
-      case timeLeft >= 0:
-        screenShow = "otp";
-        message = "";
-        response = 200;
-        is_otp_active = true;
-
-        break;
-      case timeLeft < 0:
-        screenShow = "otp";
-        message = "";
-        response = 200;
-        is_otp_active = false;
-        break;
-    }
-  }
-
-  const data = {
-    ...otpData,
-    is_otp_active,
-    otp_attempts: otpAttempts,
-    screen: screenShow,
-    error_message: message,
-  };
-
-  if (!is_otp_active) {
-    data.expires_at = null;
-    data.created_at = null;
-  }
-
-  console.log("DATA : ", data);
-
-  return res.status(response).json({
-    data,
-    message: message,
+  return res.status(200).json({
+    data: {
+      ...tempSessionData,
+    },
   });
+
+  // let screenShow;
+  // let message;
+  // let is_otp_active = false;
+
+  // const otpRequestCountVal = await redisClient.get(
+  //   `otp_request_count:${user?.id}`,
+  // );
+  // const otpAttempts =
+  //   otpRequestCountVal !== null ? Number(otpRequestCountVal) : 3;
+
+  // const otpVerifyAttemptsVal = tempSessionId
+  //   ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
+  //   : null;
+  // const otpVerifyAttempts =
+  //   otpVerifyAttemptsVal !== null ? Number(otpVerifyAttemptsVal) : 3;
+
+  // let otpData = null;
+  // if (tempSessionId) {
+  //   const sessionString = await redisClient.get(
+  //     `temp_session:${tempSessionId}`,
+  //   );
+  //   otpData = sessionString ? JSON.parse(sessionString) : null;
+  // }
+
+  // const cooldownKey = `otp_cooldown:${user?.id}`;
+
+  // const expiryTime = (await redisClient.get(`${cooldownKey}`))
+  //   ? otpData?.expires_at
+  //   : null;
+
+  // const timeLeft =
+  //   expiryTime == null
+  //     ? null
+  //     : Math.floor(
+  //         new Date(otpData?.expires_at).getTime() -
+  //           new Date(new Date().toISOString()).getTime(),
+  //       ) /
+  //       1000 /
+  //       60;
+
+  // let response = 200;
+
+  // const isOTPthere =
+  //   user?.id && otpVerifyAttempts > 0
+  //     ? await redisClient.get(`otp:${user?.id}`)
+  //     : null;
+
+  // if (!isOTPthere) {
+  //   screenShow = "otp";
+  //   message = "";
+  //   response = 200;
+  //   is_otp_active = false;
+  // } else {
+  //   switch (true) {
+  //     case timeLeft === null && otpData !== null:
+  //       screenShow = "otp";
+  //       message = "";
+  //       is_otp_active = false;
+  //       response = 200;
+  //       break;
+  //     case timeLeft >= 0:
+  //       screenShow = "otp";
+  //       message = "";
+  //       response = 200;
+  //       is_otp_active = true;
+
+  //       break;
+  //     case timeLeft < 0:
+  //       screenShow = "otp";
+  //       message = "";
+  //       response = 200;
+  //       is_otp_active = false;
+  //       break;
+  //   }
+  // }
+
+  // const data = {
+  //   ...otpData,
+  //   is_otp_active,
+  //   otp_attempts: otpAttempts,
+  //   screen: screenShow,
+  //   error_message: message,
+  // };
+
+  // if (!is_otp_active) {
+  //   data.expires_at = null;
+  //   data.created_at = null;
+  // }
+
+  // return res.status(response).json({
+  //   data,
+  //   message: message,
+  // });
 });
 
 // Verify OTP
@@ -708,8 +675,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const tempSessionId = req.tempSessionId ?? null;
 
-  console.log(userInfo, tempSessionId);
-
   const { otp } = req.body;
 
   if (!userInfo && !tempSessionId) {
@@ -723,8 +688,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   const tempSessionIdRedis = await redisClient.get(
     `temp_session:${tempSessionId}`,
   );
-
-  console.log("tempSessionIdRedis : ", tempSessionIdRedis);
 
   if (!tempSessionIdRedis) {
     clearAuthCookies(res);
@@ -782,8 +745,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       `otp_verify_attempts:${tempSessionId}`,
       1,
     );
-
-    console.log("remainingAttempts : ", remainingAttempts);
 
     if (remainingAttempts <= 0) {
       await redisClient.del(`otp:${userInfo?.id}`);

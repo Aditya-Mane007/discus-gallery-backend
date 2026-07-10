@@ -14,7 +14,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
     : req?.cookies?.token;
 
   if (!csrf) {
-    console.log("CSRF BROKEN");
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
     return res.status(400).json({
@@ -24,8 +23,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
   }
 
   if (!token) {
-    console.log("TOKEN BROKEN");
-
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
     return res.status(401).json({ message: "No token", redirectTo: "/login" });
@@ -34,8 +31,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
   const csrfTokenStatus = verifyToken(token, csrf);
 
   if (!csrfTokenStatus) {
-    console.log("CSRF verification BROKEN");
-
     res.status(401);
     return res.json({
       message: "Request verification failed.",
@@ -61,18 +56,13 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
 
     jwt.verify(token, user?.rows[0]?.jwt_secret);
 
-    const userInfo = user.rows[0];
+    console.log("USER LOG FROM MIDDLEWARE : ", user?.rows[0]);
 
-    console.log("USER INFO : ", userInfo);
-
-    delete userInfo?.jwt_secret;
-
-    req.user = userInfo;
-    req.tempSessionId = userInfo?.temp_session_id;
+    req.user = user?.rows[0]?.user_id;
+    req.tempSessionId = user?.rows[0]?.temp_session_id;
 
     next();
   } catch (error) {
-    console.log("ERROR : ", error);
     if (error.name == "TokenExpiredError") {
       return res.status(401).json({
         message: "Access Token Expired",

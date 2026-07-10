@@ -28,8 +28,9 @@ router.get("/health", (req, res) => {
 // router.post("/register", registerController);
 router.post("/login", loginController);
 router.get("/logout", logoutController);
-router.get("/getuser", adminAuthMiddlware, authoriseController);
+router.get("/me", adminAuthMiddlware, authoriseController);
 router.get("/refresh-token", getRefreshToken);
+// router.get("/me", adminAuthMiddlware , getuserInfo)
 
 // OTP
 router.get("/generateOTP", adminAuthMiddlware, generateOtpController);
