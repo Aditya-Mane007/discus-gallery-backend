@@ -261,9 +261,9 @@ const loginController = asyncHandler(async (req, res) => {
 
   const tempSessionSecret = await generateJWTSecret();
   const temSessionId = await generateUUID();
-  const otp = await generateOTP();
-  const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS;
   const preauthOtpAttempts = PRE_AUTH_ATTEMPTS - 1;
+  const otp = await generateOTP();
+  const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS - 1;
 
   const can_resend_in = new Date().getTime() + 30 * 1000;
 
@@ -544,12 +544,10 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const tempSessionId = req.tempSessionId ?? null;
 
-  console.log("tempSessionId : ", tempSessionId);
-
   if (!user && !tempSessionId) {
     clearAuthCookies(res);
     res.clearCookie("temp-session-id");
-    return res.status(400).json({
+    return res.status(401).json({
       message: "User is not authorised, please login",
       redirectTo: "/login",
     });
@@ -559,107 +557,11 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   const tempSessionData = JSON.parse(tempSession);
 
-  console.log("TEMP SESSION DATA : ", tempSessionData);
-
   return res.status(200).json({
     data: {
       ...tempSessionData,
     },
   });
-
-  // let screenShow;
-  // let message;
-  // let is_otp_active = false;
-
-  // const otpRequestCountVal = await redisClient.get(
-  //   `otp_request_count:${user?.id}`,
-  // );
-  // const otpAttempts =
-  //   otpRequestCountVal !== null ? Number(otpRequestCountVal) : 3;
-
-  // const otpVerifyAttemptsVal = tempSessionId
-  //   ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
-  //   : null;
-  // const otpVerifyAttempts =
-  //   otpVerifyAttemptsVal !== null ? Number(otpVerifyAttemptsVal) : 3;
-
-  // let otpData = null;
-  // if (tempSessionId) {
-  //   const sessionString = await redisClient.get(
-  //     `temp_session:${tempSessionId}`,
-  //   );
-  //   otpData = sessionString ? JSON.parse(sessionString) : null;
-  // }
-
-  // const cooldownKey = `otp_cooldown:${user?.id}`;
-
-  // const expiryTime = (await redisClient.get(`${cooldownKey}`))
-  //   ? otpData?.expires_at
-  //   : null;
-
-  // const timeLeft =
-  //   expiryTime == null
-  //     ? null
-  //     : Math.floor(
-  //         new Date(otpData?.expires_at).getTime() -
-  //           new Date(new Date().toISOString()).getTime(),
-  //       ) /
-  //       1000 /
-  //       60;
-
-  // let response = 200;
-
-  // const isOTPthere =
-  //   user?.id && otpVerifyAttempts > 0
-  //     ? await redisClient.get(`otp:${user?.id}`)
-  //     : null;
-
-  // if (!isOTPthere) {
-  //   screenShow = "otp";
-  //   message = "";
-  //   response = 200;
-  //   is_otp_active = false;
-  // } else {
-  //   switch (true) {
-  //     case timeLeft === null && otpData !== null:
-  //       screenShow = "otp";
-  //       message = "";
-  //       is_otp_active = false;
-  //       response = 200;
-  //       break;
-  //     case timeLeft >= 0:
-  //       screenShow = "otp";
-  //       message = "";
-  //       response = 200;
-  //       is_otp_active = true;
-
-  //       break;
-  //     case timeLeft < 0:
-  //       screenShow = "otp";
-  //       message = "";
-  //       response = 200;
-  //       is_otp_active = false;
-  //       break;
-  //   }
-  // }
-
-  // const data = {
-  //   ...otpData,
-  //   is_otp_active,
-  //   otp_attempts: otpAttempts,
-  //   screen: screenShow,
-  //   error_message: message,
-  // };
-
-  // if (!is_otp_active) {
-  //   data.expires_at = null;
-  //   data.created_at = null;
-  // }
-
-  // return res.status(response).json({
-  //   data,
-  //   message: message,
-  // });
 });
 
 // Verify OTP
@@ -856,21 +758,47 @@ const generateOtpController = asyncHandler(async (req, res) => {
   const tempSessionId = req.tempSessionId ?? null;
 
   if (!user && !tempSessionId) {
-    return res.status(400).json({
-      message: "User is not authorised, please login 6",
+    return res.status(401).json({
+      message: "Login Session Expired, kindly login again",
       redirectTo: "/login",
     });
   }
 
-  const otpService = await generate2FAOTPService(
-    user?.id,
-    tempSessionId,
-    OTP_TYPE?.LOGIN_VERIFICATION_OTP,
-    res,
+  const tempSessionData = await redisClient.get(`preauth:${tempSessionId}`);
+
+  const parasedTempSessionData = JSON.parse(tempSessionData);
+
+  if (Number(parasedTempSessionData?.otp_verification_attempts) < 1) {
+    return res.status(400).json({
+      message: "You have reached the maximum number of OTP resend attempts.",
+    });
+  }
+
+  const otp = await generateOTP();
+
+  const can_resend_in = new Date().getTime() + 30 * 1000;
+
+  const hashedOTP = await bcrypt.hash(otp.toString(), HASHED_SALT);
+
+  const preauthData = {
+    user_id: user,
+    otp_hashed: hashedOTP,
+    temp_session_secret: parasedTempSessionData?.temp_session_secret,
+    otp_verification_attempts:
+      Number(parasedTempSessionData?.otp_verification_attempts) - 1,
+    can_resend_in: can_resend_in,
+    resend_try: "RESEND OTP",
+  };
+
+  const preauthredisKey = await redisClient.set(
+    `preauth:${tempSessionId}`,
+    JSON.stringify(preauthData),
+    "EX",
+    OTP_EXPIRY_TIME * 60,
+    "XX",
   );
 
   return res.status(200).json({
-    data: otpService,
     message: "OTP Generated Successfully",
   });
 });

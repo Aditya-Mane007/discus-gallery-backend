@@ -54,7 +54,9 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
       throw new Error("Unable to retrieve user account.");
     }
 
-    jwt.verify(token, user?.rows[0]?.jwt_secret);
+    const verificationStatus = jwt.verify(token, user?.rows[0]?.jwt_secret);
+
+    console.log("JWT Verification Status : ", verificationStatus);
 
     console.log("USER LOG FROM MIDDLEWARE : ", user?.rows[0]);
 
@@ -71,8 +73,8 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
 
     clearAuthCookies(res);
 
-    res.status(500);
-    throw new Error("Verification failed, please try again after sometime");
+    res.status(401);
+    throw new Error("Login Session Expired, kindly login again");
   }
 });
 
