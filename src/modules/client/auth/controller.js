@@ -1,8 +1,8 @@
-const asyncHandler = require("express-async-handler");
-const bcrypt = require("bcrypt");
-const dotenv = require("dotenv");
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
+const asyncHandler = require('express-async-handler');
+const bcrypt = require('bcrypt');
+const dotenv = require('dotenv');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const {
   checkIfUsersExists,
@@ -20,27 +20,27 @@ const {
   updateRefreshToken,
   createSession,
   checkRefreshToken,
-} = require("./repository.js");
+} = require('./repository.js');
 const {
   generateCSRFToken,
   generateToken,
   generateOTP,
   generateJWTSecret,
   generateRefreshToken,
-} = require("../../../utils/utils.js");
+} = require('../../../utils/utils.js');
 const {
   registerSchema,
   loginSchema,
   otpVerificationSchema,
   updateUserInfoSchema,
   resetPasswordSchema,
-} = require("./validation.js");
-const redisClient = require("../../../services/redisClient.js");
+} = require('./validation.js');
+const redisClient = require('../../../services/redisClient.js');
 const {
   OTP_EXPIRY_TIME,
   HASHED_SALT,
   clearAuthCookies,
-} = require("../../../utils/constant.js");
+} = require('../../../utils/constant.js');
 
 dotenv.config();
 
@@ -51,37 +51,29 @@ const REFRESH_WAIT_INTERVAL_MS = 150;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const setRefreshCookies = (res, sessionId, token, refreshToken, csrfToken) => {
-  res.cookie("session-id", sessionId, {
+  res.cookie('token', token, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 
-  res.cookie("token", token, {
+  res.cookie('refresh-token', refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/client/auth/refresh-token',
   });
 
-  res.cookie("refresh-token", refreshToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/client/auth/refresh-token",
-  });
-
-  res.cookie("XSRF-TOKEN", csrfToken, {
+  res.cookie('XSRF-TOKEN', csrfToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 };
 
@@ -100,7 +92,7 @@ const registerController = asyncHandler(async (req, res) => {
   if (useExists) {
     return res
       .status(400)
-      .json({ message: "User already exists, please login" });
+      .json({ message: 'User already exists, please login' });
   }
 
   const jwtSecret = generateJWTSecret();
@@ -113,13 +105,13 @@ const registerController = asyncHandler(async (req, res) => {
 
   const user = await createUser(name, email, hashpassword, jwtSecret);
 
-  const deviceName = req?.headers["sec-ch-ua-platform"].replace(/["']/g, "");
+  const deviceName = req?.headers['sec-ch-ua-platform'].replace(/["']/g, '');
 
   const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
   if (!user) {
     return res.status(500).json({
-      message: "Something went wrong, please try again later",
+      message: 'Something went wrong, please try again later',
     });
   }
 
@@ -135,47 +127,39 @@ const registerController = asyncHandler(async (req, res) => {
 
   delete user?.jwt_secret;
 
-  res.cookie("token", token, {
+  res.cookie('token', token, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 
-  res.cookie("refresh-token", refreshToken, {
+  res.cookie('refresh-token', refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/client/auth/refresh-token",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/client/auth/refresh-token',
   });
 
   const sessionId = session?.rows[0]?.session_id;
 
-  res.cookie("session-id", sessionId, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  });
-
   const csrfToken = generateCSRFToken(token);
-  res.cookie("XSRF-TOKEN", csrfToken, {
+  res.cookie('XSRF-TOKEN', csrfToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 
   return res.status(201).json({
     accessToken: token,
     user: user,
-    message: "User Registered Successfully",
+    message: 'User Registered Successfully',
   });
 });
 
@@ -194,7 +178,7 @@ const loginController = asyncHandler(async (req, res) => {
   if (userExists.rowCount < 1) {
     return res
       .status(400)
-      .json({ message: "User does not exists, please register" });
+      .json({ message: 'User does not exists, please register' });
   }
 
   const checkPassword = await bcrypt.compare(
@@ -203,7 +187,7 @@ const loginController = asyncHandler(async (req, res) => {
   );
 
   if (!checkPassword) {
-    return res.status(400).json({ message: "Invalid credentials" });
+    return res.status(400).json({ message: 'Invalid credentials' });
   }
 
   const user = userExists.rows[0];
@@ -212,7 +196,7 @@ const loginController = asyncHandler(async (req, res) => {
 
   const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
 
-  const deviceName = req?.headers["sec-ch-ua-platform"].replace(/["']/g, "");
+  const deviceName = req?.headers['sec-ch-ua-platform'].replace(/["']/g, '');
 
   const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
@@ -226,42 +210,34 @@ const loginController = asyncHandler(async (req, res) => {
     userExists.rows[0].jwt_secret,
   );
 
-  res.cookie("token", token, {
+  res.cookie('token', token, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: 'lax',
 
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === 'production',
   });
 
-  res.cookie("refresh-token", refreshToken, {
+  res.cookie('refresh-token', refreshToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/client/auth/refresh-token",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/client/auth/refresh-token',
   });
 
   const sessionId = session?.rows[0]?.session_id;
 
-  res.cookie("session-id", sessionId, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  });
-
   const csrfToken = generateCSRFToken(token);
 
-  res.cookie("XSRF-TOKEN", csrfToken, {
+  res.cookie('XSRF-TOKEN', csrfToken, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 
   const userInfo = user;
@@ -272,13 +248,13 @@ const loginController = asyncHandler(async (req, res) => {
   return res.status(200).json({
     accessToken: token,
     user: userInfo,
-    message: "Logged In Successfully",
+    message: 'Logged In Successfully',
   });
 });
 
 // Logout Controller
 const logoutController = async (req, res) => {
-  const sessionId = req.cookies["session-id"];
+  const sessionId = req.cookies['session-id'];
 
   const status = false;
 
@@ -286,26 +262,26 @@ const logoutController = async (req, res) => {
 
   clearAuthCookies(res);
 
-  return res.status(201).json({ message: "Logout Successfully" });
+  return res.status(201).json({ message: 'Logout Successfully' });
 };
 
 // Get User
 const authoriseController = (req, res) => {
   return res.status(200).json({
     data: req.user,
-    message: "User Verification Successfull",
+    message: 'User Verification Successfull',
   });
 };
 
 // Get Refresh token
 const getRefreshToken = asyncHandler(async (req, res) => {
   const cookies = req?.cookies;
-  const refreshToken = cookies["refresh-token"];
-  const sessionId = cookies["session-id"];
+  const refreshToken = cookies['refresh-token'];
+  const sessionId = cookies['session-id'];
 
   if (!refreshToken || !sessionId) {
     clearAuthCookies(res);
-    return res.status(401).json({ message: "Session expired" });
+    return res.status(401).json({ message: 'Session expired' });
   }
 
   const lockKey = `refresh_lock:${sessionId}`;
@@ -315,12 +291,12 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   const lockStatus = await redisClient.set(
     lockKey,
     lockValue,
-    "PX",
+    'PX',
     REFRESH_LOCK_TTL_MS,
-    "NX",
+    'NX',
   );
 
-  if (lockStatus !== "OK") {
+  if (lockStatus !== 'OK') {
     const waitStartTime = Date.now();
     while (Date.now() - waitStartTime < REFRESH_WAIT_TIMEOUT_MS) {
       const cachedResult = await redisClient.get(resultKey);
@@ -334,7 +310,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
           parsed?.csrfToken,
         );
         return res.status(200).json({
-          message: "New Access Token Granted",
+          message: 'New Access Token Granted',
           shared: true,
         });
       }
@@ -343,7 +319,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
     }
 
     return res.status(429).json({
-      message: "Token refresh already in progress. Please retry.",
+      message: 'Token refresh already in progress. Please retry.',
     });
   }
 
@@ -356,7 +332,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
       clearAuthCookies(res);
 
-      return res.status(401).json({ message: "Session expired" });
+      return res.status(401).json({ message: 'Session expired' });
     }
 
     const isValid = await bcrypt.compare(
@@ -369,7 +345,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
       await updateRefreshToken(null, sessionId, status);
       clearAuthCookies(res);
 
-      return res.status(400).json({ message: "Logged out successfully" });
+      return res.status(400).json({ message: 'Logged out successfully' });
     }
 
     const newRefreshToken = generateRefreshToken();
@@ -409,12 +385,12 @@ const getRefreshToken = asyncHandler(async (req, res) => {
         refreshToken: newRefreshToken,
         csrfToken,
       }),
-      "PX",
+      'PX',
       REFRESH_WAIT_TIMEOUT_MS,
     );
 
     return res.status(200).json({
-      message: "New Access Token Granted",
+      message: 'New Access Token Granted',
       shared: false,
     });
   } finally {
@@ -432,18 +408,18 @@ const getUserController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(400)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: 'User is not authorised, please login' });
   }
 
   const userInfo = await getUserById(user?.id);
 
   if (!userInfo) {
-    return res.status(400).json({ message: "Facing error to get user info" });
+    return res.status(400).json({ message: 'Facing error to get user info' });
   }
 
   return res.status(200).json({
     userInfo: userInfo?.rows[0],
-    message: "User info fetched sussfully",
+    message: 'User info fetched sussfully',
   });
 });
 
@@ -454,7 +430,7 @@ const updateUserController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(400)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: 'User is not authorised, please login' });
   }
 
   try {
@@ -470,12 +446,12 @@ const updateUserController = asyncHandler(async (req, res) => {
   if (!userInfo?.rowCount) {
     return res.status(400).json({
       message:
-        "Facing error while updating user infomation, please try after sometime",
+        'Facing error while updating user infomation, please try after sometime',
     });
   }
 
   return res.status(200).json({
-    message: "User info updated successfully",
+    message: 'User info updated successfully',
   });
 });
 
@@ -489,23 +465,23 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(400)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: 'User is not authorised, please login' });
   }
 
   const otpData = await getOtpData(user?.id);
 
   if (!otpData) {
-    return res.status(400).json({ message: "Unable to fetch otp data" });
+    return res.status(400).json({ message: 'Unable to fetch otp data' });
   }
 
   if (user?.verified) {
     const data = {
-      screen: "verified",
-      message: "User is Verified",
+      screen: 'verified',
+      message: 'User is Verified',
     };
     return res.status(200).json({
       data,
-      message: "",
+      message: '',
     });
   }
 
@@ -527,24 +503,24 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   switch (true) {
     case timeLeft === null && isOTPthere:
-      screenShow = "otp";
-      message = "";
+      screenShow = 'otp';
+      message = '';
       response = 200;
       break;
     case timeLeft === null:
-      screenShow = "email";
-      message = "";
+      screenShow = 'email';
+      message = '';
       response = 200;
       break;
     case timeLeft >= 0:
-      screenShow = "otp";
-      message = "";
+      screenShow = 'otp';
+      message = '';
       response = 200;
 
       break;
     case timeLeft < 0:
-      screenShow = "otp";
-      message = "";
+      screenShow = 'otp';
+      message = '';
       response = 200;
       break;
   }
@@ -569,7 +545,7 @@ const generateOtpController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(401)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: 'User is not authorised, please login' });
   }
 
   let otpAttempts = await redisClient.get(`otp_attempts:${user?.id}`);
@@ -578,14 +554,14 @@ const generateOtpController = asyncHandler(async (req, res) => {
     if (Number(otpAttempts) === 0) {
       return res.status(400).json({
         message:
-          "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
+          'You have reached the maximum of 3 OTP attempts. try again after 1 hours',
       });
     } else {
       otpAttempts = await redisClient.decrby(`otp_attempts:${user?.id}`, 1);
       await redisClient.del(`otp_verification_attempts:${user?.id}`);
     }
   } else {
-    await redisClient.set(`otp_attempts:${user?.id}`, 2, "EX", 60 * 60, "NX");
+    await redisClient.set(`otp_attempts:${user?.id}`, 2, 'EX', 60 * 60, 'NX');
     otpAttempts = 2;
     await resetOtpStatus(user?.id);
   }
@@ -604,18 +580,18 @@ const generateOtpController = asyncHandler(async (req, res) => {
   );
 
   if (!userInfo?.rowCount) {
-    return res.status(400).json({ message: "Error Generating OTP" });
+    return res.status(400).json({ message: 'Error Generating OTP' });
   }
 
   const data = {
     otp_attempts: otpAttempts,
     otp_created_at: userInfo?.rows[0]?.otp_created_at,
-    screen: "otp",
+    screen: 'otp',
   };
 
   return res.status(200).json({
     data,
-    message: "OTP Sent Successfully",
+    message: 'OTP Sent Successfully',
   });
 });
 
@@ -632,7 +608,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   if (!user) {
     return res
       .status(401)
-      .json({ message: "User is not authorised, please login" });
+      .json({ message: 'User is not authorised, please login' });
   }
 
   const otpVerificationAttempts = await redisClient.get(
@@ -643,14 +619,14 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     if (Number(otpVerificationAttempts) === 0) {
       await resetOtpStatus(user?.id);
       return res.status(400).json({
-        message: "Too many attempts, please generate new otp",
+        message: 'Too many attempts, please generate new otp',
       });
     }
   } else {
     await redisClient.set(
       `otp_verification_attempts:${user?.id}`,
       2,
-      "EX",
+      'EX',
       60 * 5,
     );
   }
@@ -664,7 +640,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   if (otpFromDb.rowCount < 1) {
     return res.status(400).json({
-      message: "OTP verification failed, kindly generate otp",
+      message: 'OTP verification failed, kindly generate otp',
     });
   }
 
@@ -676,19 +652,19 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     otpCreationTime.getTime() > new Date(otpExpirationTime).getTime();
 
   if (isExpired) {
-    return res.status(400).json({ message: "OTP is expired" });
+    return res.status(400).json({ message: 'OTP is expired' });
   }
 
   if (Number(otp) !== Number(dbOTP)) {
     await redisClient.decrby(`otp_verification_attempts:${user?.id}`, 1);
-    return res.status(400).json({ message: "Invalid OTP" });
+    return res.status(400).json({ message: 'Invalid OTP' });
   }
 
   const userVerification = await updateVerifiedStatusQuery(user?.id);
 
   if (userVerification.rowCount < 1) {
     return res.status(400).json({
-      message: "OTP Vefication failed, please try again after sometime",
+      message: 'OTP Vefication failed, please try again after sometime',
     });
   }
 
@@ -699,8 +675,8 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   return res.status(200).json({
     data: {
-      screen: "verified",
-      message: "OTP verification successful",
+      screen: 'verified',
+      message: 'OTP verification successful',
     },
   });
 });

@@ -1,8 +1,8 @@
-const asyncHandler = require("express-async-handler");
-const bcrypt = require("bcrypt");
-const dotenv = require("dotenv");
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
+const asyncHandler = require('express-async-handler');
+const bcrypt = require('bcrypt');
+const dotenv = require('dotenv');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 
 const {
   checkIfUsersExists,
@@ -22,7 +22,7 @@ const {
   checkRefreshToken,
   createTempSession,
   getMeById,
-} = require("./repository.js");
+} = require('./repository.js');
 const {
   generateCSRFToken,
   generateToken,
@@ -31,29 +31,35 @@ const {
   generateRefreshToken,
   generateTempSessionToken,
   generateUUID,
-} = require("../../../utils/utils.js");
+} = require('../../../utils/utils.js');
 const {
   registerSchema,
   loginSchema,
   otpVerificationSchema,
   updateUserInfoSchema,
   resetPasswordSchema,
-} = require("./validation.js");
-const redisClient = require("../../../services/redisClient.js");
+} = require('./validation.js');
+const redisClient = require('../../../services/redisClient.js');
 const {
   OTP_EXPIRY_TIME,
   HASHED_SALT,
   clearAuthCookies,
   OTP_TYPE,
-  OTP_VERIFICATION_ATTEMPTS,
   PRE_AUTH_ATTEMPTS,
   PRE_AUTH_ATTEMPTS_EXPIRY,
-} = require("../../../utils/constant.js");
-const { config } = require("../../../config/config.js");
+  OTP_ATTEMPTS,
+  OTP_VERIFICATION_ATTEMPTS,
+  TEMP_SESSION_COOKIE,
+  TEMP_CSRF_COOKIE,
+  ACTUAL_TOKEN_COOKIE,
+  ACTUAL_CSRF_COOKIE,
+  ACTUAL_REFRESH_TOKEN_COOKIE,
+} = require('../../../utils/constant.js');
+const { config } = require('../../../config/config.js');
 const {
   generateOTPService,
   generate2FAOTPService,
-} = require("../../../services/service.js");
+} = require('../../../services/service.js');
 
 dotenv.config();
 
@@ -63,42 +69,28 @@ const REFRESH_WAIT_INTERVAL_MS = 150;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const setRefreshCookies = (res, sessionId, token, refreshToken, csrfToken) => {
-  res.cookie("session-id", sessionId, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+const setRefreshCookies = (res, token, refreshToken, csrfToken) => {
+  res.cookie('token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 
-  res.cookie("token", token, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('refresh-token', refreshToken, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/admin/auth/refresh-token',
   });
 
-  res.cookie("refresh-token", refreshToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 30 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/admin/auth/refresh-token",
-  });
-
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('XSRF-TOKEN', csrfToken, {
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 };
 
-// Register Controller
+// Register Controller - NEEDS REFACTORING
 const registerController = asyncHandler(async (req, res) => {
   try {
     await registerSchema.validateAsync(req.body);
@@ -113,7 +105,7 @@ const registerController = asyncHandler(async (req, res) => {
   if (useExists) {
     return res
       .status(400)
-      .json({ message: "User already exists, please login" });
+      .json({ message: 'User already exists, please login' });
   }
 
   const jwtSecret = generateJWTSecret();
@@ -127,13 +119,13 @@ const registerController = asyncHandler(async (req, res) => {
   const user = await createUser(name, email, hashpassword, jwtSecret);
 
   const deviceName =
-    req?.headers["sec-ch-ua-platform"]?.replace(/["']/g, "") || "Unknown";
+    req?.headers['sec-ch-ua-platform']?.replace(/["']/g, '') || 'Unknown';
 
   const session = await createSession(user?.id, deviceName, hasedRefreshToken);
 
   if (!user) {
     return res.status(500).json({
-      message: "Something went wrong, please try again later",
+      message: 'Something went wrong, please try again later',
     });
   }
 
@@ -149,47 +141,33 @@ const registerController = asyncHandler(async (req, res) => {
 
   delete user?.jwt_secret;
 
-  res.cookie("token", token, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 
-  res.cookie("refresh-token", refreshToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+  res.cookie('refresh-token', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/admin/auth/refresh-token",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/admin/auth/refresh-token',
   });
 
   const sessionId = session?.rows[0]?.session_id;
 
-  res.cookie("session-id", sessionId, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  });
-
   const csrfToken = generateCSRFToken(token);
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('XSRF-TOKEN', csrfToken, {
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 
   return res.status(201).json({
     accessToken: token,
     user: user,
-    message: "User Registered Successfully",
+    message: 'User Registered Successfully',
   });
 });
 
@@ -208,7 +186,7 @@ const loginController = asyncHandler(async (req, res) => {
   if (!userExists || userExists.rowCount < 1) {
     return res
       .status(400)
-      .json({ message: "User does not exists, please register" });
+      .json({ message: 'User does not exists, please register' });
   }
 
   const checkPassword = await bcrypt.compare(
@@ -223,8 +201,12 @@ const loginController = asyncHandler(async (req, res) => {
   if (preauthAttemptCount !== null && Number(preauthAttemptCount) <= 0) {
     return res.status(400).json({
       message:
-        "You have reached the maximum number of login attempts. Try again after 1 hour.",
+        'You have reached the maximum number of login attempts. Try again after 1 hour.',
     });
+  }
+
+  if (!checkPassword) {
+    return res.status(400).json({ message: 'Invalid credentials' });
   }
 
   if (preauthAttemptCount !== null && Number(preauthAttemptCount) > 0) {
@@ -234,36 +216,16 @@ const loginController = asyncHandler(async (req, res) => {
     );
   }
 
-  if (!checkPassword) {
-    return res.status(400).json({ message: "Invalid credentials" });
-  }
-
   const user = userExists.rows[0];
-  const cooldownKey = `otp_cooldown:${user?.user_id}`;
-  await redisClient.del(`${cooldownKey}`);
-
-  const attemptsKey = await redisClient.get(
-    `otp_request_count:${user?.user_id}`,
-  );
-  if (attemptsKey && Number(attemptsKey) <= 0) {
-    clearAuthCookies(res);
-    res.clearCookie("temp-session-id");
-    return res.status(400).json({
-      message:
-        "Looks like there were several attempts. For your security, please try again in about an hour.",
-    });
-  }
-
-  const deviceName =
-    req?.headers["sec-ch-ua-platform"]?.replace(/["']/g, "") || "Unknown";
-
-  const ip = req?.ip || req?.socket?.remoteAddress;
 
   const tempSessionSecret = await generateJWTSecret();
-  const temSessionId = await generateUUID();
-  const preauthOtpAttempts = PRE_AUTH_ATTEMPTS - 1;
+  const tempSessionId = await generateUUID();
+  const preauth_attempts_remaining = PRE_AUTH_ATTEMPTS - 1;
   const otp = await generateOTP();
-  const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS - 1;
+
+  console.log(`LOGIN OTP FOR ${user?.email} : `, otp);
+  const otp_attempts = OTP_ATTEMPTS - 1;
+  const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS;
 
   const can_resend_in = new Date().getTime() + 30 * 1000;
 
@@ -271,8 +233,8 @@ const loginController = asyncHandler(async (req, res) => {
 
   const token = generateTempSessionToken(
     {
-      id: user?.user_id,
-      temp_session_id: temSessionId,
+      user_id: user?.user_id,
+      temp_session_id: tempSessionId,
     },
     tempSessionSecret,
   );
@@ -283,52 +245,54 @@ const loginController = asyncHandler(async (req, res) => {
     user_id: user?.user_id,
     otp_hashed: hashedOTP,
     temp_session_secret: tempSessionSecret,
-    otp_verification_attempts: otp_verification_attempts,
+    otp_attempts: otp_attempts,
     can_resend_in: can_resend_in,
+    otp_verifiy_attempts: otp_verification_attempts,
+    created_at: Date.now(),
   };
 
   const preauthredisKey = await redisClient.set(
-    `preauth:${temSessionId}`,
+    `preauth:${tempSessionId}`,
     JSON.stringify(preauthData),
-    "EX",
-    OTP_EXPIRY_TIME * 60,
+    'EX',
+    OTP_EXPIRY_TIME,
   );
 
   await redisClient.set(
     preauthattemptsKey,
-    preauthOtpAttempts,
-    "EX",
-    PRE_AUTH_ATTEMPTS_EXPIRY * 60,
-    "NX",
+    preauth_attempts_remaining,
+    'EX',
+    PRE_AUTH_ATTEMPTS_EXPIRY,
+    'NX',
   );
 
-  res.cookie("temp-session-id", token, {
-    maxAge: 5 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('temp-session-id', token, {
+    maxAge: TEMP_SESSION_COOKIE,
+    expires: new Date(Date.now() + TEMP_SESSION_COOKIE),
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 
   const csrfToken = generateCSRFToken(token);
 
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('XSRF-TOKEN', csrfToken, {
+    maxAge: TEMP_CSRF_COOKIE,
+    expires: new Date(Date.now() + TEMP_CSRF_COOKIE),
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 
   return res.status(200).json({
-    redirectTo: "/verify-otp",
-    message: "Logged In Successfully",
+    redirectTo: '/verify',
+    message: 'Logged In Successfully',
   });
 });
 
-// Logout Controller
+// Logout Controller - NEEDS REFACTORING
 const logoutController = async (req, res) => {
-  const sessionId = req.cookies["session-id"];
+  const sessionId = req.cookies['session-id'];
 
   const status = false;
 
@@ -336,7 +300,7 @@ const logoutController = async (req, res) => {
 
   clearAuthCookies(res);
 
-  return res.status(201).json({ message: "Logout Successfully" });
+  return res.status(201).json({ message: 'Logout Successfully' });
 };
 
 // Get User
@@ -348,22 +312,27 @@ const authoriseController = async (req, res) => {
     email: userData?.email,
     profile_photo_url: userData?.profile_photo_url,
   };
-  console.log("userInfo : ", userInfo);
   return res.status(200).json({
     data: { ...userInfo },
-    message: "User Verification Successfull",
+    message: 'User Verification Successfull',
   });
 };
 
-// Get Refresh token
+// Get Refresh token - NEEDS REFACTORING
 const getRefreshToken = asyncHandler(async (req, res) => {
   const cookies = req?.cookies;
-  const refreshToken = cookies["refresh-token"];
-  const sessionId = cookies["session-id"];
+  const token = req?.cookies['token'];
+  const refreshToken = cookies['refresh-token'];
+  const decodedToken = jwt.decode(token, { complete: true });
+
+  const sessionId = decodedToken?.payload?.session_id;
+
+  console.log('REFRESH TOKEN : ', refreshToken);
+  console.log('SESSION ID : ', sessionId);
 
   if (!refreshToken || !sessionId) {
     clearAuthCookies(res);
-    return res.status(401).json({ message: "Session expired" });
+    return res.status(401).json({ message: 'Session expired' });
   }
 
   const lockKey = `refresh_lock:${sessionId}`;
@@ -373,12 +342,12 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   const lockStatus = await redisClient.set(
     lockKey,
     lockValue,
-    "PX",
+    'PX',
     REFRESH_LOCK_TTL_MS,
-    "NX",
+    'NX',
   );
 
-  if (lockStatus !== "OK") {
+  if (lockStatus !== 'OK') {
     const waitStartTime = Date.now();
     while (Date.now() - waitStartTime < REFRESH_WAIT_TIMEOUT_MS) {
       const cachedResult = await redisClient.get(resultKey);
@@ -392,7 +361,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
           parsed?.csrfToken,
         );
         return res.status(200).json({
-          message: "New Access Token Granted",
+          message: 'New Access Token Granted',
           shared: true,
         });
       }
@@ -401,12 +370,14 @@ const getRefreshToken = asyncHandler(async (req, res) => {
     }
 
     return res.status(429).json({
-      message: "Token refresh already in progress. Please retry.",
+      message: 'Token refresh already in progress. Please retry.',
     });
   }
 
   try {
     const refreshTokenFromDb = await checkRefreshToken(sessionId);
+
+    console.log('REFRESH TOEKN FROM DB : ', refreshTokenFromDb);
 
     if (refreshTokenFromDb?.rowCount < 1) {
       const status = false;
@@ -414,20 +385,17 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
       clearAuthCookies(res);
 
-      return res.status(401).json({ message: "Session expired" });
+      return res.status(401).json({ message: 'Session expired' });
     }
 
-    const isValid = await bcrypt.compare(
-      refreshToken,
-      refreshTokenFromDb?.rows[0]?.refresh_token,
-    );
+    const isValid = refreshToken == refreshTokenFromDb?.rows[0]?.refresh_token;
 
     if (!isValid) {
       const status = false;
       await updateRefreshToken(null, sessionId, status);
       clearAuthCookies(res);
 
-      return res.status(400).json({ message: "Logged out successfully" });
+      return res.status(400).json({ message: 'Logged out successfully' });
     }
 
     const newRefreshToken = generateRefreshToken();
@@ -467,12 +435,12 @@ const getRefreshToken = asyncHandler(async (req, res) => {
         refreshToken: newRefreshToken,
         csrfToken,
       }),
-      "PX",
+      'PX',
       REFRESH_WAIT_TIMEOUT_MS,
     );
 
     return res.status(200).json({
-      message: "New Access Token Granted",
+      message: 'New Access Token Granted',
       shared: false,
     });
   } finally {
@@ -481,60 +449,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
       await redisClient.del(lockKey);
     }
   }
-});
-
-// Get User Details Controller
-const getUserController = asyncHandler(async (req, res) => {
-  const user = req?.user;
-
-  if (!user) {
-    return res
-      .status(400)
-      .json({ message: "User is not authorised, please login 1" });
-  }
-
-  const userInfo = await getUserById(user?.id);
-
-  if (!userInfo) {
-    return res.status(400).json({ message: "Facing error to get user info" });
-  }
-
-  return res.status(200).json({
-    userInfo: userInfo?.rows[0],
-    message: "User info fetched sussfully",
-  });
-});
-
-// Update User Details Controller
-const updateUserController = asyncHandler(async (req, res) => {
-  const user = req?.user;
-
-  if (!user) {
-    return res
-      .status(400)
-      .json({ message: "User is not authorised, please login 2" });
-  }
-
-  try {
-    await updateUserInfoSchema.validateAsync(req?.body);
-  } catch (error) {
-    return res.status(400).json({ message: error?.details[0]?.message });
-  }
-
-  const { name, profile_photo } = req?.body;
-
-  const userInfo = await updateUserInfo(user?.id, name, profile_photo);
-
-  if (!userInfo?.rowCount) {
-    return res.status(400).json({
-      message:
-        "Facing error while updating user infomation, please try after sometime",
-    });
-  }
-
-  return res.status(200).json({
-    message: "User info updated successfully",
-  });
 });
 
 // REDIS FLOW FOR 2FA
@@ -546,16 +460,19 @@ const getOtpStatusController = asyncHandler(async (req, res) => {
 
   if (!user && !tempSessionId) {
     clearAuthCookies(res);
-    res.clearCookie("temp-session-id");
+    res.clearCookie('temp-session-id');
     return res.status(401).json({
-      message: "User is not authorised, please login",
-      redirectTo: "/login",
+      message: 'User is not authorised, please login',
+      redirectTo: '/login',
     });
   }
 
   const tempSession = await redisClient.get(`preauth:${tempSessionId}`);
 
   const tempSessionData = JSON.parse(tempSession);
+
+  delete tempSessionData?.otp_hashed;
+  delete tempSessionData?.temp_session_secret;
 
   return res.status(200).json({
     data: {
@@ -571,183 +488,125 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   } catch (error) {
     return res.status(400).json({ message: error?.details[0]?.message });
   }
-  const user = req.user;
 
-  const userInfo = (await getUserById(user?.id)).rows[0];
+  const user = req.user;
 
   const tempSessionId = req.tempSessionId ?? null;
 
-  const { otp } = req.body;
-
-  if (!userInfo && !tempSessionId) {
-    clearAuthCookies(res);
-    return res.status(400).json({
-      message: "User is not authorised, please login 4",
-      redirectTo: "/login",
+  if (!user && !tempSessionId) {
+    return res.status(401).json({
+      message: 'Login Session Expired, kindly login again',
+      redirectTo: '/login',
     });
   }
 
-  const tempSessionIdRedis = await redisClient.get(
-    `temp_session:${tempSessionId}`,
-  );
+  const tempSessionData = await redisClient.get(`preauth:${tempSessionId}`);
 
-  if (!tempSessionIdRedis) {
-    clearAuthCookies(res);
-    return res.status(400).json({
-      message: "User is not authorised, please login 5",
-      redirectTo: "/login",
-    });
-  }
+  const parasedTempSessionData = JSON.parse(tempSessionData);
 
-  const otpFromDb = userInfo?.id
-    ? await redisClient.get(`otp:${userInfo?.id}`)
-    : null;
+  if (Number(parasedTempSessionData?.otp_verifiy_attempts < 1)) {
+    const preauthData = {
+      user_id: user,
+      otp_hashed: parasedTempSessionData?.otp_hashed,
+      temp_session_secret: parasedTempSessionData?.temp_session_secret,
+      otp_attempts: parasedTempSessionData?.otp_attempts,
+      can_resend_in: true,
+      otp_verifiy_attempts:
+        Number(parasedTempSessionData?.otp_verifiy_attempts) - 1,
+    };
 
-  const otpVerifyAttemptsVal = tempSessionId
-    ? await redisClient.get(`otp_verify_attempts:${tempSessionId}`)
-    : null;
-  const otpVerifyAttempts =
-    otpVerifyAttemptsVal !== null ? Number(otpVerifyAttemptsVal) : 3;
-
-  const otpRequestCountVal = await redisClient.get(
-    `otp_request_count:${user?.id}`,
-  );
-  const otpAttempts =
-    otpRequestCountVal !== null ? Number(otpRequestCountVal) : 3;
-
-  if (otpVerifyAttempts <= 0) {
-    if (userInfo?.id) {
-      await redisClient.del(`otp:${userInfo?.id}`);
-      const cooldownKey = `otp_cooldown:${userInfo?.id}`;
-      await redisClient.del(`${cooldownKey}`);
-    }
-    return res.status(400).json({
-      is_otp_active: false,
-      can_resend: true,
-      otp_attempts: otpAttempts,
-      screen: "otp",
-      message: "Too many otp verification attempts, please generate new otp",
-    });
-  }
-
-  if (!otpFromDb) {
-    return res.status(400).json({
-      is_otp_active: false,
-      can_resend: true,
-      otp_attempts: otpAttempts,
-      screen: "otp",
-      message: "otp is expired, please generate new otp",
-    });
-  }
-
-  const isOtpValid = await bcrypt.compare(String(otp), otpFromDb);
-
-  if (!isOtpValid) {
-    const remainingAttempts = await redisClient.decrby(
-      `otp_verify_attempts:${tempSessionId}`,
-      1,
+    const preauthredisKey = await redisClient.set(
+      `preauth:${tempSessionId}`,
+      JSON.stringify(preauthData),
+      'KEEPTTL',
+      'XX',
     );
 
-    if (remainingAttempts <= 0) {
-      await redisClient.del(`otp:${userInfo?.id}`);
-      const cooldownKey = `otp_cooldown:${userInfo?.id}`;
-      await redisClient.del(`${cooldownKey}`);
-
-      return res.status(400).json({
-        is_otp_active: false,
-        can_resend: true,
-        otp_attempts: otpAttempts,
-        screen: "otp",
-        message: "Too many otp verification attempts, please generate new otp",
-      });
-    }
-
     return res.status(400).json({
-      is_otp_active: true,
-      otp_attempts: otpAttempts,
-      message: "Invalid otp,please enter a valid otp",
+      message: 'Too many otp verify attempts, please generate',
     });
   }
 
-  // OTP verified successfully!
-  await redisClient.del(`otp:${userInfo?.id}`);
-  await redisClient.del(`otp_request_count:${userInfo?.id}`);
-  await redisClient.del(`otp_cooldown:${userInfo?.id}`);
-  await redisClient.del(`otp_verify_attempts:${tempSessionId}`);
-  await redisClient.del(`temp_session:${tempSessionId}`);
+  const userInfo = (await getUserById(user)).rows[0];
 
-  const refreshToken = generateRefreshToken();
+  const { otp } = req.body;
 
-  const hasedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
+  if (!(await bcrypt.compare(otp, parasedTempSessionData?.otp_hashed))) {
+    const preauthData = {
+      user_id: user,
+      otp_hashed: parasedTempSessionData?.otp_hashed,
+      temp_session_secret: parasedTempSessionData?.temp_session_secret,
+      otp_attempts: parasedTempSessionData?.otp_attempts,
+      can_resend_in: parasedTempSessionData?.can_resend_in,
+      otp_verifiy_attempts:
+        Number(parasedTempSessionData?.otp_verifiy_attempts) - 1,
+    };
+
+    const preauthredisKey = await redisClient.set(
+      `preauth:${tempSessionId}`,
+      JSON.stringify(preauthData),
+      'EX',
+      OTP_EXPIRY_TIME,
+      'XX',
+    );
+
+    return res.status(400).json({
+      message: 'Invalid or Expired OTP',
+    });
+  }
 
   const deviceName =
-    req?.headers["sec-ch-ua-platform"]?.replace(/["']/g, "") || "Unknown";
+    req?.headers['sec-ch-ua-platform']?.replace(/["']/g, '') || 'Unknown';
 
   const ip = req?.ip || req?.socket?.remoteAddress;
 
+  const refreshToken = generateRefreshToken();
+
   const session = await createSession(
-    userInfo?.id,
+    req.user,
     deviceName,
-    hasedRefreshToken,
     ip,
+    deviceName,
+    refreshToken,
   );
+
+  const sessionId = session?.rows[0]?.session_id;
 
   const token = generateToken(
     {
-      id: userInfo?.id,
+      user_id: req.user,
       email: userInfo?.email,
-      profile_photo: userInfo?.profile_photo,
-      verified: userInfo?.verified,
+      profile_photo_url: userInfo?.profile_photo_url,
+      session_id: sessionId,
     },
     userInfo?.jwt_secret,
   );
 
-  res.cookie("token", token, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  });
-
   const csrfToken = generateCSRFToken(token);
 
-  res.cookie("XSRF-TOKEN", csrfToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+  res.cookie('token', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
+
+  res.cookie('XSRF-TOKEN', csrfToken, {
     httpOnly: false,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   });
 
-  res.cookie("refresh-token", refreshToken, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+  res.cookie('refresh-token', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/api/admin/auth/refresh-token",
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/api/admin/auth/refresh-token',
   });
 
-  const sessionId = session?.rows[0]?.session_id;
-
-  res.cookie("session-id", sessionId, {
-    maxAge: 3 * 24 * 60 * 60 * 1000,
-    expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  });
-
-  res.clearCookie("temp-session-id");
-
-  delete userInfo?.password;
-  delete userInfo?.jwt_secret;
+  res.clearCookie('temp-session-id');
 
   return res.status(200).json({
-    accessToken: token,
-    user: userInfo,
-    redirectTo: "/",
+    redirectTo: '/',
   });
 });
 
@@ -759,8 +618,8 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   if (!user && !tempSessionId) {
     return res.status(401).json({
-      message: "Login Session Expired, kindly login again",
-      redirectTo: "/login",
+      message: 'Login Session Expired, kindly login again',
+      redirectTo: '/login',
     });
   }
 
@@ -768,9 +627,9 @@ const generateOtpController = asyncHandler(async (req, res) => {
 
   const parasedTempSessionData = JSON.parse(tempSessionData);
 
-  if (Number(parasedTempSessionData?.otp_verification_attempts) < 1) {
+  if (Number(parasedTempSessionData?.otp_attempts) < 1) {
     return res.status(400).json({
-      message: "You have reached the maximum number of OTP resend attempts.",
+      message: 'You have reached the maximum number of OTP resend attempts.',
     });
   }
 
@@ -784,22 +643,21 @@ const generateOtpController = asyncHandler(async (req, res) => {
     user_id: user,
     otp_hashed: hashedOTP,
     temp_session_secret: parasedTempSessionData?.temp_session_secret,
-    otp_verification_attempts:
-      Number(parasedTempSessionData?.otp_verification_attempts) - 1,
+    otp_attempts: Number(parasedTempSessionData?.otp_attempts) - 1,
     can_resend_in: can_resend_in,
-    resend_try: "RESEND OTP",
+    otp_verifiy_attempts: OTP_VERIFICATION_ATTEMPTS,
   };
 
   const preauthredisKey = await redisClient.set(
     `preauth:${tempSessionId}`,
     JSON.stringify(preauthData),
-    "EX",
-    OTP_EXPIRY_TIME * 60,
-    "XX",
+    'EX',
+    OTP_EXPIRY_TIME,
+    'XX',
   );
 
   return res.status(200).json({
-    message: "OTP Generated Successfully",
+    message: 'OTP Generated Successfully',
   });
 });
 
@@ -811,8 +669,7 @@ module.exports = {
   getRefreshToken,
   generateOtpController,
   otpVerificationController,
-  getUserController,
-  updateUserController,
+
   getOtpStatusController,
   // generateOtp,
   // verifyOtp,

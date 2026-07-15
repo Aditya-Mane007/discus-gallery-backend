@@ -1,13 +1,13 @@
-const dotenv = require("dotenv");
-const nodemailer = require("nodemailer");
+const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
 dotenv.config();
-const jwt = require("jsonwebtoken");
-const AES = require("crypto-js/aes");
-const ENC = require("crypto-js/enc-utf8");
-const crypto = require("crypto");
-const { userInfo } = require("os");
-const { JWT_SECRET_BYTES, HASHED_SALT } = require("./constant");
-const bcrypt = require("bcrypt");
+const jwt = require('jsonwebtoken');
+const AES = require('crypto-js/aes');
+const ENC = require('crypto-js/enc-utf8');
+const crypto = require('crypto');
+const { userInfo } = require('os');
+const { JWT_SECRET_BYTES, HASHED_SALT } = require('./constant');
+const bcrypt = require('bcrypt');
 
 // To compare csrf token
 // const compareToken = (recievedToken, generatedToken) => {
@@ -33,7 +33,7 @@ const compareToken = (receivedToken, generatedToken) => {
 // Generate JWT Token
 const generateToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
-    expiresIn: "15m",
+    expiresIn: '2m',
   });
 };
 
@@ -44,28 +44,28 @@ const generateUUID = () => {
 
 const generateTempSessionToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
-    expiresIn: "5m",
+    expiresIn: '5m',
   });
 };
 
 // To Generate Refresh Token
 const generateRefreshToken = () => {
-  return crypto.randomBytes(JWT_SECRET_BYTES).toString("hex");
+  return crypto.randomBytes(JWT_SECRET_BYTES).toString('hex');
 };
 
 // To Generate CSRF token
 const generateCSRFToken = (token) => {
   const hashedToken = crypto
-    .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
+    .createHmac('sha256', process.env.CSRF_TOKEN_SECRET)
     .update(token)
-    .digest("hex");
+    .digest('hex');
 
   return hashedToken;
 };
 
 // To Generate JWT Secret for user
 const generateJWTSecret = () => {
-  return crypto.randomBytes(JWT_SECRET_BYTES).toString("hex");
+  return crypto.randomBytes(JWT_SECRET_BYTES).toString('hex');
 };
 
 // To verify/compare/check token received token, generated csrf token from(received jwt token)
@@ -80,9 +80,9 @@ const generateJWTSecret = () => {
 
 const verifyToken = (jwtToken, receivedCSRFtoken) => {
   const hashedToken = crypto
-    .createHmac("sha256", process.env.CSRF_TOKEN_SECRET)
+    .createHmac('sha256', process.env.CSRF_TOKEN_SECRET)
     .update(jwtToken)
-    .digest("hex");
+    .digest('hex');
 
   return crypto.timingSafeEqual(
     Buffer.from(receivedCSRFtoken),
@@ -98,7 +98,7 @@ const encryptPayload = (payload) => {
     ).toString();
     return encrytedData;
   } catch (error) {
-    throw new Error("Error : ", error);
+    throw new Error('Error : ', error);
   }
 };
 
@@ -111,7 +111,7 @@ const decryptPayload = (payload) => {
 
     return JSON.parse(decryptedData);
   } catch (error) {
-    throw new Error("Error : ", error);
+    throw new Error('Error : ', error);
   }
 };
 
@@ -121,7 +121,7 @@ const generateOTP = () => {
 };
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+  host: 'smtp.gmail.com',
   port: 465,
   secure: true,
   auth: {
@@ -134,11 +134,11 @@ const send = async (recipent, otp) => {
   const info = await transporter.sendMail({
     from: `"Discus Gallery" <${process.env.GMAIL_APP_USER}>`,
     to: recipent,
-    subject: "User Identity Verifcation ",
+    subject: 'User Identity Verifcation ',
     text: `YOUR OTP : ${otp}`,
   });
 
-  console.log("Message sent:", info.messageId);
+  console.log('Message sent:', info.messageId);
 };
 
 module.exports = {

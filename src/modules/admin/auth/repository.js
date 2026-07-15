@@ -1,6 +1,6 @@
-const { TABLE_SCHEMA, SESSION_LIMIT } = require("../../../utils/constant.js");
-const { pool } = require("../../../config/db.js");
-const redisClient = require("../../../services/redisClient.js");
+const { TABLE_SCHEMA, SESSION_LIMIT } = require('../../../utils/constant.js');
+const { pool } = require('../../../config/db.js');
+const redisClient = require('../../../services/redisClient.js');
 
 const registerUserQuery = async () => {
   const result = await pool.query(`SELCET * FROM ${TABLE_SCHEMA.ADMIN_AUTH}`);
@@ -10,7 +10,7 @@ const registerUserQuery = async () => {
 
 const checkIfUsersExists = async (email) => {
   const query = {
-    name: "check-if-user-exists",
+    name: 'check-if-user-exists',
     text: `SELECT email FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE email=$1`,
     values: [email],
   };
@@ -21,7 +21,7 @@ const checkIfUsersExists = async (email) => {
 
 const createUser = async (name, email, password, jwt_secret) => {
   const query = {
-    name: "create-user",
+    name: 'create-user',
     text: `INSERT INTO ${TABLE_SCHEMA.ADMIN_AUTH}(name,email,password,jwt_secret) VALUES($1,$2,$3,$4) RETURNING id, email, profile_photo, verified,jwt_secret`,
     values: [name, email, password, jwt_secret],
   };
@@ -46,7 +46,7 @@ const createUser = async (name, email, password, jwt_secret) => {
 // check for user and return user password
 const getUserByEmail = async (email) => {
   const query = {
-    name: "get-user-by-email",
+    name: 'get-user-by-email',
     text: `SELECT * FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE email=$1`,
     values: [email],
   };
@@ -55,19 +55,58 @@ const getUserByEmail = async (email) => {
   return result;
 };
 
-const getUserById = async (id) => {
+const getUserById = async (user_id, session_id) => {
+  if (!session_id) {
+    const query = {
+      name: 'get-userInfo-by-id',
+      text: `SELECT user_id, name, email, profile_photo_url, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
+      values: [user_id],
+    };
+
+    const result = await pool.query(query);
+    return result;
+  }
   const query = {
-    name: "get-user-by-id",
-    text: `SELECT user_id, name, email, profile_photo_url, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
-    values: [id],
+    name: 'get-user-by-id',
+    text: ` SELECT 
+                u.user_id, 
+                u.name, 
+                u.email, 
+                u.password_hash, 
+                u.profile_photo_url, 
+                u.portal_id,
+                u.jwt_secret,
+   
+                s.session_id,
+                s.is_active
+            
+            FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u 
+            INNER JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
+            ON u.user_id = s.user_id
+            
+            WHERE u.user_id=$1 AND s.session_id=$2
+    `,
+    values: [user_id, session_id],
   };
   const result = await pool.query(query);
   return result;
 };
 
+const getUserBYIdInTempSession = async (user_id) => {
+  const query = {
+    name: 'get-user-by-id-in-temp-session',
+    text: `SELECT user_id, name, email, profile_photo_url, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
+    values: [user_id],
+  };
+
+  const result = await pool.query(query);
+
+  return result;
+};
+
 const getMeById = async (id) => {
   const query = {
-    name: "get-me-by-id",
+    name: 'get-me-by-id',
     text: `SELECT user_id, name, email, profile_photo_url FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
     values: [id],
   };
@@ -79,7 +118,7 @@ const gettempSession = async (id) => {
   const tempSessioKey = `preauth:${id}`;
   const getTempSession = await redisClient.get(tempSessioKey);
   const userInfo = JSON.parse(getTempSession);
-  const userData = (await getUserById(userInfo?.user_id)).rows[0];
+  const userData = (await getUserBYIdInTempSession(userInfo?.user_id)).rows[0];
   if (getTempSession !== null) {
     const tempSessionData = JSON.parse(getTempSession);
     const res = {
@@ -109,7 +148,7 @@ const gettempSession = async (id) => {
 
 const updateUserInfo = async (id, name, profilePhoto) => {
   const query = {
-    name: "update-user-info",
+    name: 'update-user-info',
     text: `UPDATE ${TABLE_SCHEMA.ADMIN_AUTH} SET name=COALESCE($2,name) profile_photo=COALESCE($3,profile_photo) WHERE id=$1 RETURNING name profile_photo`,
     values: [id, name, profilePhoto],
   };
@@ -128,7 +167,7 @@ const generateOTPQuery = async (
   // NEW FLOW
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    await client.query('BEGIN');
 
     // If an unused OTP already exists for this context, mark it used before creating a new one.
     if (tempSessionId) {
@@ -155,10 +194,10 @@ const generateOTPQuery = async (
       [userId, tempSessionId, otp_type, hashedOTP, otpExpiryTime],
     );
 
-    await client.query("COMMIT");
+    await client.query('COMMIT');
     return insertResult;
   } catch (error) {
-    await client.query("ROLLBACK");
+    await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
@@ -167,7 +206,7 @@ const generateOTPQuery = async (
 
 const updateVerifiedStatusQuery = async (id) => {
   const query = {
-    name: "update-verified-status",
+    name: 'update-verified-status',
     text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET verified=TRUE, otp = null, otp_created_at = null, otp_expires_at = null, is_otp_active = false  WHERE id=$1`,
     values: [id],
   };
@@ -179,7 +218,7 @@ const updateVerifiedStatusQuery = async (id) => {
 
 const getOTPQuery = async (userId, tempSessionId, otp_type) => {
   const query = {
-    name: "get-otp-for-verification",
+    name: 'get-otp-for-verification',
     text: tempSessionId
       ? `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND temp_session_id=$2 AND otp_type=$3 AND is_used=FALSE`
       : `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND otp_type=$2 AND is_used=FALSE`,
@@ -195,7 +234,7 @@ const getOTPQuery = async (userId, tempSessionId, otp_type) => {
 
 const otpVerificationQuery = async (id, otp) => {
   const query = {
-    name: "otp-verification",
+    name: 'otp-verification',
     text: `UPDATE ${TABLE_SCHEMA?.AUTH} SET verified=TRUE WHERE otp = $2 AND otp_expires_at > NOW() AND id=$1`,
     values: [id, otp],
   };
@@ -207,7 +246,7 @@ const otpVerificationQuery = async (id, otp) => {
 
 const getOtpData = async (userId, tempSessionId, otp_type) => {
   const query = {
-    name: "get-otp-data",
+    name: 'get-otp-data',
     text: tempSessionId
       ? `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND temp_session_id=$2 AND otp_type=$3 AND is_used=FALSE`
       : `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_OTP} WHERE user_id=$1 AND otp_type=$2 AND is_used=FALSE`,
@@ -223,7 +262,7 @@ const getOtpData = async (userId, tempSessionId, otp_type) => {
 
 const resetOtpStatus = async (id) => {
   const query = {
-    name: "reset-otp-attempts",
+    name: 'reset-otp-attempts',
     text: `UPDATE ${TABLE_SCHEMA?.ADMIN_OTP} SET is_otp_active = false WHERE id=$1`,
     values: [id],
   };
@@ -240,7 +279,7 @@ const updateRefreshToken = async (refreshToken, sessionId, activeStatus) => {
     let result;
     if (activeStatus) {
       query = {
-        name: "update-refresh-token",
+        name: 'update-refresh-token',
         text: `UPDATE ${TABLE_SCHEMA?.ADMIN_SESSION} SET refresh_token=$1 WHERE session_id=$2 AND is_active=$3`,
         values: [refreshToken, sessionId, activeStatus],
       };
@@ -248,7 +287,7 @@ const updateRefreshToken = async (refreshToken, sessionId, activeStatus) => {
       return result;
     } else {
       query = {
-        name: "update-refresh-token",
+        name: 'update-refresh-token',
         text: `UPDATE ${TABLE_SCHEMA?.ADMIN_SESSION} SET is_active=FALSE WHERE session_id=$1`,
         values: [sessionId],
       };
@@ -256,7 +295,7 @@ const updateRefreshToken = async (refreshToken, sessionId, activeStatus) => {
       return result;
     }
   } catch (error) {
-    console.log("ERROR : ", error);
+    console.log('ERROR : ', error);
   }
 };
 
@@ -264,23 +303,21 @@ const updateRefreshToken = async (refreshToken, sessionId, activeStatus) => {
 const checkRefreshToken = async (sessionId) => {
   try {
     const query = {
-      name: "get-refresh-token-from-db",
+      name: 'get-refresh-token-from-db',
       text: `
         SELECT 
           s.session_id AS "sessionId",
           s.refresh_token,
-          s.user_id AS "userId",
 
-          u.id,
+          u.user_id,
           u.name,
           u.email,
-          u.profile_photo,
-          u.verified,
+          u.profile_photo_url,
           u.jwt_secret
 
         FROM ${TABLE_SCHEMA?.ADMIN_SESSION} s
         INNER JOIN ${TABLE_SCHEMA?.ADMIN_AUTH} u
-          ON u.id = s.user_id
+          ON u.user_id = s.user_id
         
         WHERE 
           s.session_id = $1
@@ -293,25 +330,31 @@ const checkRefreshToken = async (sessionId) => {
 
     return result;
   } catch (error) {
-    console.log("ERROR : ", error);
+    console.log('ERROR : ', error);
   }
 };
 
-const createSession = async (user_id, device_name, refresh_token, ip) => {
+const createSession = async (
+  user_id,
+  device_name,
+  ip_address,
+  user_agent,
+  refresh_token,
+) => {
   const query = {
-    name: "create-user-session",
-    text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_SESSION}(user_id,device_name,refresh_token,ip) VALUES($1,$2,$3,$4) RETURNING session_id`,
-    values: [user_id, device_name, refresh_token, ip],
+    name: 'create-user-session',
+    text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_SESSION}(user_id,device_name,ip_address,user_agent,refresh_token) VALUES($1,$2,$3,$4,$5) RETURNING session_id`,
+    values: [user_id, device_name, ip_address, user_agent, refresh_token],
   };
 
   const getSessions = {
-    name: "get-user-session",
+    name: 'get-user-session',
     text: `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_SESSION} WHERE user_id=$1 AND is_active=TRUE ORDER BY created_at LIMIT 1`,
     values: [user_id],
   };
 
   const updateLeastUsedSession = {
-    name: "update-least-used-session",
+    name: 'update-least-used-session',
     text: `UPDATE ${TABLE_SCHEMA?.ADMIN_SESSION} SET is_active=FALSE WHERE user_id=$1 AND session_id=$2`,
   };
 
@@ -341,7 +384,7 @@ const createSession = async (user_id, device_name, refresh_token, ip) => {
 
 const getSessions = async (id) => {
   const query = {
-    name: "create-user-session",
+    name: 'create-user-session',
     query: `SELECT * ${TABLE_SCHEMA?.ADMIN_SESSION} WHERE user_id=$1`,
     values: [id],
   };
@@ -354,7 +397,7 @@ const getSessions = async (id) => {
 // READ SESSION
 const getSessionById = async (id, sessionId) => {
   const query = {
-    name: "get-session-by-id",
+    name: 'get-session-by-id',
     query: `SELECT * FROM ${TABLE_SCHEMA?.ADMIN_SESSION} WHERE user_id=$1 AND id=$2`,
     values: [id, sessionId],
   };
@@ -367,7 +410,7 @@ const getSessionById = async (id, sessionId) => {
 // UPDATE OR SOFT DELETE SESSION
 const deleteSession = async (id, sessionId) => {
   const query = {
-    name: "delete-session",
+    name: 'delete-session',
     query: `UPDATE ${TABLE_SCHEMA?.ADMIN_SESSION} SET is_active = FALSE, WHERE user_id=$1 AND id=$2`,
     values: [id, sessionId],
   };
@@ -380,7 +423,7 @@ const deleteSession = async (id, sessionId) => {
 // TEMP SESSION
 const createTempSession = async (user_id, device_name, ip) => {
   const query = {
-    name: "create-temp-session",
+    name: 'create-temp-session',
     text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_TEMP_SESSION}(user_id,device,ip) VALUES($1,$2,$3) RETURNING temp_session_id`,
     values: [user_id, device_name, ip],
   };
