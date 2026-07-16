@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS admin.user_sessions(
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     revoked_at TIMESTAMPTZ,
     revoked_by UUID,
+    expires_at TIMESTAMPTZ,
 
     CONSTRAINT fk_user
         FOREIGN KEY(user_id)

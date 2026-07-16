@@ -1,23 +1,24 @@
-const express = require("express");
-require("colors");
-const cors = require("cors");
-const dotenv = require("dotenv");
+const express = require('express');
+require('colors');
+const cors = require('cors');
+const dotenv = require('dotenv');
 dotenv.config();
 
-const bcrypt = require("bcrypt");
+const bcrypt = require('bcrypt');
 
-const errorHandler = require("./middleware/errorMiddleware.js");
-const bodyParser = require("body-parser");
-const cookieParser = require("cookie-parser");
-const decryptionMiddleware = require("./middleware/decryptionMiddlware.js");
-const encryptionMiddleware = require("./middleware/encryptionMiddleware.js");
-const { generateJWTSecret, generateRefreshToken } = require("./utils/utils.js");
-const { HASHED_SALT, OTP_TYPE } = require("./utils/constant.js");
+const errorHandler = require('./middleware/errorMiddleware.js');
+const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
+const decryptionMiddleware = require('./middleware/decryptionMiddlware.js');
+const encryptionMiddleware = require('./middleware/encryptionMiddleware.js');
+const { generateJWTSecret, generateRefreshToken } = require('./utils/utils.js');
+const { HASHED_SALT, OTP_TYPE } = require('./utils/constant.js');
 const {
   createUser,
   checkIfUsersExists,
-} = require("./modules/admin/auth/repository.js");
-const { config } = require("./config/config.js");
+} = require('./modules/admin/auth/repository.js');
+const { config } = require('./config/config.js');
+const { startSchedulers } = require('./bootstrap/scheduler.js');
 
 const PORT = process.env.PORT || 5000;
 
@@ -33,7 +34,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: "http://localhost:3000", // your frontend origin
+    origin: 'http://localhost:3000', // your frontend origin
     credentials: true, // enable cookies to be sent cross-origin
   }),
 );
@@ -62,9 +63,11 @@ app.use(
 
 // app.use("/api", encryptionMiddleware);
 
-app.use("/api", require("./routes/routes.js"));
+app.use('/api', require('./routes/routes.js'));
 
 app.use(errorHandler);
+
+startSchedulers();
 
 app.listen(PORT, () => {
   console.log(

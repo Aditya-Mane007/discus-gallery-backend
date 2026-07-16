@@ -12,6 +12,7 @@ export const TEMP_CSRF_COOKIE = 5 * 60 * 1000;
 export const ACTUAL_TOKEN_COOKIE = 5 * 60 * 1000;
 export const ACTUAL_CSRF_COOKIE = 3 * 24 * 60 * 60 * 1000;
 export const ACTUAL_REFRESH_TOKEN_COOKIE = 3 * 24 * 60 * 60 * 1000;
+export const ACTUAL_SESSION_EXPIRTY_TIME = 3 * 24 * 60 * 60 * 1000;
 
 export const TABLE_SCHEMA = {
   AUTH: 'auth.users',

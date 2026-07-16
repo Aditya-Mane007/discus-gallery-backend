@@ -54,6 +54,7 @@ const {
   ACTUAL_TOKEN_COOKIE,
   ACTUAL_CSRF_COOKIE,
   ACTUAL_REFRESH_TOKEN_COOKIE,
+  ACTUAL_SESSION_EXPIRTY_TIME,
 } = require('../../../utils/constant.js');
 const { config } = require('../../../config/config.js');
 const {
@@ -70,6 +71,10 @@ const REFRESH_WAIT_INTERVAL_MS = 150;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const setRefreshCookies = (res, token, refreshToken, csrfToken) => {
+  console.log('SET TOKEN : ', token);
+  console.log('SET REF TOKEN : ', refreshToken);
+  console.log('SET CSRF TOKEN : ', csrfToken);
+
   res.cookie('token', token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -327,9 +332,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
   const sessionId = decodedToken?.payload?.session_id;
 
-  console.log('REFRESH TOKEN : ', refreshToken);
-  console.log('SESSION ID : ', sessionId);
-
   if (!refreshToken || !sessionId) {
     clearAuthCookies(res);
     return res.status(401).json({ message: 'Session expired' });
@@ -355,7 +357,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
         const parsed = JSON.parse(cachedResult);
         setRefreshCookies(
           res,
-          parsed?.sessionId,
           parsed?.token,
           parsed?.refreshToken,
           parsed?.csrfToken,
@@ -377,8 +378,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   try {
     const refreshTokenFromDb = await checkRefreshToken(sessionId);
 
-    console.log('REFRESH TOEKN FROM DB : ', refreshTokenFromDb);
-
     if (refreshTokenFromDb?.rowCount < 1) {
       const status = false;
       await updateRefreshToken(null, sessionId, status);
@@ -388,7 +387,10 @@ const getRefreshToken = asyncHandler(async (req, res) => {
       return res.status(401).json({ message: 'Session expired' });
     }
 
-    const isValid = refreshToken == refreshTokenFromDb?.rows[0]?.refresh_token;
+    const isValid = await bcrypt.compare(
+      refreshToken,
+      refreshTokenFromDb?.rows[0]?.refresh_token,
+    );
 
     if (!isValid) {
       const status = false;
@@ -409,23 +411,17 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
     const token = generateToken(
       {
-        id: userInfo?.userId,
+        user_id: userInfo?.user_id,
         email: userInfo?.email,
-        profile_photo: userInfo?.profile_photo,
-        verified: userInfo?.verified,
+        profile_photo_url: userInfo?.profile_photo_url,
+        session_id: sessionId,
       },
       userInfo.jwt_secret,
     );
 
     const csrfToken = generateCSRFToken(token);
 
-    setRefreshCookies(
-      res,
-      userInfo?.sessionId,
-      token,
-      newRefreshToken,
-      csrfToken,
-    );
+    setRefreshCookies(res, token, newRefreshToken, csrfToken);
 
     await redisClient.set(
       resultKey,
@@ -562,12 +558,15 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const refreshToken = generateRefreshToken();
 
+  const expires_at = new Date().getTime() + ACTUAL_SESSION_EXPIRTY_TIME;
+
   const session = await createSession(
     req.user,
     deviceName,
     ip,
     deviceName,
     refreshToken,
+    expires_at,
   );
 
   const sessionId = session?.rows[0]?.session_id;

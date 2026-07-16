@@ -25,6 +25,8 @@ const portalData = [
 
 const seedPortalData = async (name, slug, description) => {
   try {
+    console.log('STARTED : SEEDING PORTAL DATA');
+
     const query = {
       name: 'seed-portal-data',
       text: `INSERT INTO ${TABLE_SCHEMA.ADMIN_PORTAL} (name, slug, description) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING`,
@@ -33,9 +35,11 @@ const seedPortalData = async (name, slug, description) => {
 
     const result = await pool.query(query);
 
+    console.log('COMPLETED : SEEDING PORTAL DATA');
+
     return result;
   } catch (error) {
-    console.log('Error Seeding Portal Data : ', error);
+    console.log('ERROR : SEEDING PORTAL DATA - ', error);
   }
 };
 
@@ -59,7 +63,10 @@ const seedRootUserData = async (
 ) => {
   try {
     const portal = 'admin'; // single quotes for text string and double quotes for column and table string
-    const adminPortaRes = await getPortalIdBySlug(portal);
+    const adminPortalRes = await getPortalIdBySlug(portal);
+
+    console.log('STARTED : SEEDING ROOT USER');
+
     const query = {
       name: 'seed-root-user-data',
       text: `INSERT INTO ${TABLE_SCHEMA.ADMIN_AUTH} (name, email, password_hash,portal_id, jwt_secret,is_root) VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -67,7 +74,7 @@ const seedRootUserData = async (
         name,
         email,
         password_hash,
-        adminPortaRes?.rows[0]?.portal_id,
+        adminPortalRes?.rows[0]?.portal_id,
         jwt_secret,
         is_root,
       ],
@@ -75,9 +82,11 @@ const seedRootUserData = async (
 
     const result = await pool.query(query);
 
+    console.log('COMPLETED : SEEDING ROOT USER');
+
     return result;
   } catch (error) {
-    console.log('Error Seeding Root User Data : ', error);
+    console.log('ERROR : SEEDING ROOT USER - ', error);
   }
 };
 
@@ -91,10 +100,11 @@ const authSeedData = async () => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const portalDataRes = portalData.forEach((portal) => {
-      seedPortalData(portal.name, portal.slug, portal.description);
+    const portalDataRes = portalData.forEach(async (portal) => {
+      await seedPortalData(portal.name, portal.slug, portal.description);
     });
-    seedRootUserData(
+
+    const seedAuth = await seedRootUserData(
       'Discus Gallery',
       'adityamane27023@gmail.com',
       password_hash,
@@ -103,7 +113,6 @@ const authSeedData = async () => {
     );
 
     await client.query('COMMIT');
-    console.log('Auth Seed Data Seeded Successfully');
   } catch (error) {
     console.log('Error Seeding Auth Data : ', error);
     await client.query('ROLLBACK');

@@ -11,7 +11,7 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
   let csrf = req?.cookies?.['XSRF-TOKEN'];
   let token = req?.cookies?.['temp-session-id']
     ? req?.cookies?.['temp-session-id']
-    : req?.cookies?.token;
+    : req?.cookies?.['token'];
 
   if (!csrf) {
     clearAuthCookies(res);
@@ -52,6 +52,8 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
           decodedToken?.payload?.user_id,
           decodedToken?.payload?.session_id,
         );
+
+    console.log('MIDDLEWARE LOG : ', user);
 
     if (!user || user.rowCount === 0) {
       res.status(404);

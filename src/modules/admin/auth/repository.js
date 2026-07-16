@@ -84,7 +84,7 @@ const getUserById = async (user_id, session_id) => {
             INNER JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
             ON u.user_id = s.user_id
             
-            WHERE u.user_id=$1 AND s.session_id=$2
+            WHERE u.user_id=$1 AND s.session_id=$2 AND s.is_active=TRUE
     `,
     values: [user_id, session_id],
   };
@@ -340,11 +340,19 @@ const createSession = async (
   ip_address,
   user_agent,
   refresh_token,
+  expires_at,
 ) => {
   const query = {
     name: 'create-user-session',
-    text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_SESSION}(user_id,device_name,ip_address,user_agent,refresh_token) VALUES($1,$2,$3,$4,$5) RETURNING session_id`,
-    values: [user_id, device_name, ip_address, user_agent, refresh_token],
+    text: `INSERT INTO ${TABLE_SCHEMA?.ADMIN_SESSION}(user_id,device_name,ip_address,user_agent,refresh_token,expires_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING session_id`,
+    values: [
+      user_id,
+      device_name,
+      ip_address,
+      user_agent,
+      refresh_token,
+      expires_at,
+    ],
   };
 
   const getSessions = {
@@ -433,6 +441,25 @@ const createTempSession = async (user_id, device_name, ip) => {
   return result;
 };
 
+// CLEAN UP - USER SESSIONS
+const cleanupExpiredUserSessions = async () => {
+  try {
+    const query = {
+      name: 'cleanup-expired-user-sessions',
+      text: `UPDATE user_sessions SET is_active = FALSE WHERE is_active = TRUE AND expires_at < NOW();
+      `,
+    };
+
+    console.log(`Expired ${result.rowCount} user session(s).`);
+
+    return result;
+
+    return result;
+  } catch (error) {
+    console.log('CLEAN UP EXPORIRED SESSION ERROR : ', error);
+  }
+};
+
 module.exports = {
   registerUserQuery,
   checkIfUsersExists,
@@ -458,4 +485,6 @@ module.exports = {
 
   gettempSession,
   getMeById,
+
+  cleanupExpiredUserSessions,
 };
