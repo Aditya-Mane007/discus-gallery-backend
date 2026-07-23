@@ -106,7 +106,7 @@ const authSeedData = async () => {
 
     const seedAuth = await seedRootUserData(
       'Discus Gallery',
-      'adityamane27023@gmail.com',
+      process.env.ROOT_ACCOUNT_EMAIL,
       password_hash,
       process.env.ROOT_ACCOUNT_JWT_SECRET,
       true,

@@ -24,6 +24,11 @@ export const TABLE_SCHEMA = {
   ADMIN_SESSION: 'admin.user_sessions',
   ADMIN_PORTAL: 'admin.portal',
   ADMIN_OTP: 'admin.otps',
+
+  // MODULES
+  MODULES_MODULE: 'modules.module',
+  MODULES_RESOURCE: 'modules.resource',
+  MODULES_RESOURCE_PERMISSION: 'modules.resource_permission',
 };
 
 export const JWT_SECRET_BYTES = 64;
