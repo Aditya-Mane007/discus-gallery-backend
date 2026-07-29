@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS admin.portal(
 );
 
 CREATE TABLE IF NOT EXISTS admin.users(
-    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     name CITEXT NOT NULL,
     email CITEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS admin.users(
 );
 
 CREATE TABLE IF NOT EXISTS admin.user_sessions(
-    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
     user_id UUID NOT NULL,
     device_name TEXT NOT NULL,
     refresh_token TEXT NOT NULL,

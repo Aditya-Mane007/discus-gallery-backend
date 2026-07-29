@@ -1,6 +1,11 @@
 const { pool } = require('../../../../config/db');
 const { TABLE_SCHEMA } = require('../../../../utils/constant');
-const { seedModuleData, seedResoucreData } = require('../repository');
+const {
+  seedModuleData,
+  seedResoucreData,
+  fetchRootUser,
+  seedResourcePermissionData,
+} = require('../repository');
 
 const iamData = [
   {
@@ -17,12 +22,42 @@ const iamData = [
         description: 'Manage users',
 
         permissions: [
-          'create',
-          'read',
-          'update',
-          'delete',
-          'activate',
-          'deactivate',
+          {
+            name: 'Create User',
+            slug: 'user:create',
+            action: 'create',
+            description: 'Allows creating a new user',
+          },
+          {
+            name: 'Read User',
+            slug: 'user:read',
+            action: 'read',
+            description: 'Allows viewing user information',
+          },
+          {
+            name: 'Update User',
+            slug: 'user:update',
+            action: 'update',
+            description: 'Allows updating user information',
+          },
+          {
+            name: 'Delete User',
+            slug: 'user:delete',
+            action: 'delete',
+            description: 'Allows deleting a user',
+          },
+          {
+            name: 'Activate User',
+            slug: 'user:activate',
+            action: 'activate',
+            description: 'Allows activating a user',
+          },
+          {
+            name: 'Deactivate User',
+            slug: 'user:deactivate',
+            action: 'deactivate',
+            description: 'Allows deactivating a user',
+          },
         ],
       },
 
@@ -31,15 +66,59 @@ const iamData = [
         slug: 'user-group',
         description: 'Manage user groups',
 
-        permissions: ['create', 'read', 'update', 'delete'],
+        permissions: [
+          {
+            name: 'Create User Group',
+            slug: 'user-group:create',
+            action: 'create',
+            description: 'Allows creating a user group',
+          },
+          {
+            name: 'Read User Group',
+            slug: 'user-group:read',
+            action: 'read',
+            description: 'Allows viewing user groups',
+          },
+          {
+            name: 'Update User Group',
+            slug: 'user-group:update',
+            action: 'update',
+            description: 'Allows updating a user group',
+          },
+          {
+            name: 'Delete User Group',
+            slug: 'user-group:delete',
+            action: 'delete',
+            description: 'Allows deleting a user group',
+          },
+        ],
       },
 
       {
         name: 'Session',
         slug: 'session',
-        description: 'Manage sessions',
+        description: 'Manage user sessions',
 
-        permissions: ['read', 'revoke', 'revoke-all'],
+        permissions: [
+          {
+            name: 'Read Session',
+            slug: 'session:read',
+            action: 'read',
+            description: 'Allows viewing user sessions',
+          },
+          {
+            name: 'Revoke Session',
+            slug: 'session:revoke',
+            action: 'revoke',
+            description: 'Allows revoking a user session',
+          },
+          {
+            name: 'Revoke All Sessions',
+            slug: 'session:revoke-all',
+            action: 'revoke-all',
+            description: 'Allows revoking all active sessions of a user',
+          },
+        ],
       },
     ],
   },
@@ -55,15 +134,45 @@ const iamData = [
       {
         name: 'Organization',
         slug: 'organization',
-        description: 'Organization',
+        description: 'Manage organizations',
 
         permissions: [
-          'create',
-          'read',
-          'update',
-          'delete',
-          'suspend',
-          'activate',
+          {
+            name: 'Create Organization',
+            slug: 'organization:create',
+            action: 'create',
+            description: 'Allows creating an organization',
+          },
+          {
+            name: 'Read Organization',
+            slug: 'organization:read',
+            action: 'read',
+            description: 'Allows viewing organization information',
+          },
+          {
+            name: 'Update Organization',
+            slug: 'organization:update',
+            action: 'update',
+            description: 'Allows updating organization information',
+          },
+          {
+            name: 'Delete Organization',
+            slug: 'organization:delete',
+            action: 'delete',
+            description: 'Allows deleting an organization',
+          },
+          {
+            name: 'Suspend Organization',
+            slug: 'organization:suspend',
+            action: 'suspend',
+            description: 'Allows suspending an organization',
+          },
+          {
+            name: 'Activate Organization',
+            slug: 'organization:activate',
+            action: 'activate',
+            description: 'Allows activating an organization',
+          },
         ],
       },
     ],
@@ -80,50 +189,105 @@ const iamData = [
       {
         name: 'Role',
         slug: 'role',
-        description: 'Role',
+        description: 'Manage roles',
 
-        permissions: ['create', 'read', 'update', 'delete', 'assign'],
+        permissions: [
+          {
+            name: 'Create Role',
+            slug: 'role:create',
+            action: 'create',
+            description: 'Allows creating a role',
+          },
+          {
+            name: 'Read Role',
+            slug: 'role:read',
+            action: 'read',
+            description: 'Allows viewing roles',
+          },
+          {
+            name: 'Update Role',
+            slug: 'role:update',
+            action: 'update',
+            description: 'Allows updating a role',
+          },
+          {
+            name: 'Delete Role',
+            slug: 'role:delete',
+            action: 'delete',
+            description: 'Allows deleting a role',
+          },
+          {
+            name: 'Assign Role',
+            slug: 'role:assign',
+            action: 'assign',
+            description: 'Allows assigning a role to a user',
+          },
+        ],
       },
     ],
   },
 ];
+
+module.exports = iamData;
 
 const seedIAM = async () => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const userId = await fetchRootUser();
+    const userId = await fetchRootUser(client);
+
+    // console.log('USER ID : ', userId);
 
     for (const data of iamData) {
-      const { moduleName, moduleSlug, moduleDescription } = data?.module;
+      const { name, slug, description } = data?.module;
+      // console.log('MODULE DATA : ', name, slug, description);
+
       const moduleRes = await seedModuleData(
-        moduleName,
-        moduleSlug,
-        moduleDescription,
+        client,
+        name,
+        slug,
+        description,
         userId,
       );
 
       const moduleId = moduleRes;
 
-      const { resourceName, resourceSlug, resourceDescription } =
-        data?.resources;
+      const resource = data?.resources;
 
-      const resourceRes = await seedResoucreData(
-        resourceName,
-        resourceSlug,
-        resourceDescription,
-        moduleId,
-        userId,
-      );
+      for (const resourceData of resource) {
+        const resourceId = await seedResoucreData(
+          client,
+          resourceData?.name,
+          resourceData?.slug,
+          resourceData?.description,
+          moduleId,
+          userId,
+        );
 
-      const resourcePermission = data?.permissions;
+        const resourcePermission = resourceData?.permissions;
 
-      const resourceId = await seedResourcePermissionData();
+        for (const permissionData of resourcePermission) {
+          const { name, slug, action, description } = permissionData;
+          await seedResourcePermissionData(
+            client,
+            name,
+            slug,
+            action,
+            description,
+            resourceId,
+            userId,
+          );
+        }
+      }
     }
 
     await client.query('COMMIT');
   } catch (error) {
-    console.log(error);
+    console.log('ERROR SEEDING IAM DATA : ', error);
+  } finally {
+    client.release();
   }
 };
+
+seedIAM();

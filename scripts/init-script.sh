@@ -40,11 +40,13 @@ echo "========================================"
 # Schema files (Executed first)
 SCHEMA_FILES=(
     "src/modules/admin/auth/model/auth-schema.sql"
+    "src/modules/admin/module/model/module-resource-permission.sql"
 )
 
 # Seed files (Executed after all schemas)
 SEED_FILES=(
     "src/modules/admin/auth/seed-data/auth-seed-data.js"
+    "src/modules/admin/module/seed-data/iam-seed-data.js"
 )
 
 execute_sql_files() {

@@ -23,7 +23,7 @@ const portalData = [
   },
 ];
 
-const seedPortalData = async (name, slug, description) => {
+const seedPortalData = async (client, name, slug, description) => {
   try {
     console.log('STARTED : SEEDING PORTAL DATA');
 
@@ -33,7 +33,7 @@ const seedPortalData = async (name, slug, description) => {
       values: [name, slug, description],
     };
 
-    const result = await pool.query(query);
+    const result = await client.query(query);
 
     console.log('COMPLETED : SEEDING PORTAL DATA');
 
@@ -43,18 +43,19 @@ const seedPortalData = async (name, slug, description) => {
   }
 };
 
-const getPortalIdBySlug = async (slug) => {
+const getPortalIdBySlug = async (client, slug) => {
   const query = {
     name: 'get-portal-id_by-slug',
     text: `SELECT * FROM ${TABLE_SCHEMA.ADMIN_PORTAL} WHERE slug=$1`,
     values: [slug],
   };
-  const result = await pool.query(query);
+  const result = await client.query(query);
 
   return result;
 };
 
 const seedRootUserData = async (
+  client,
   name,
   email,
   password_hash,
@@ -63,7 +64,7 @@ const seedRootUserData = async (
 ) => {
   try {
     const portal = 'admin'; // single quotes for text string and double quotes for column and table string
-    const adminPortalRes = await getPortalIdBySlug(portal);
+    const adminPortalRes = await getPortalIdBySlug(client, portal);
 
     console.log('STARTED : SEEDING ROOT USER');
 
@@ -80,7 +81,7 @@ const seedRootUserData = async (
       ],
     };
 
-    const result = await pool.query(query);
+    const result = await client.query(query);
 
     console.log('COMPLETED : SEEDING ROOT USER');
 
@@ -100,11 +101,17 @@ const authSeedData = async () => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const portalDataRes = portalData.forEach(async (portal) => {
-      await seedPortalData(portal.name, portal.slug, portal.description);
-    });
+    for (const portal of portalData) {
+      await seedPortalData(
+        client,
+        portal.name,
+        portal.slug,
+        portal.description,
+      );
+    }
 
-    const seedAuth = await seedRootUserData(
+    await seedRootUserData(
+      client,
       'Discus Gallery',
       process.env.ROOT_ACCOUNT_EMAIL,
       password_hash,
