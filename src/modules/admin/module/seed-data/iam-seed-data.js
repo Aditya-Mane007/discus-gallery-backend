@@ -284,7 +284,7 @@ const seedIAM = async () => {
 
     await client.query('COMMIT');
   } catch (error) {
-    console.log('ERROR SEEDING IAM DATA : ', error);
+    console.log('ERROR SEEDING IAM DATA : ',   error);
   } finally {
     client.release();
   }
