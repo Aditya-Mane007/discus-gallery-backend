@@ -228,8 +228,6 @@ const iamData = [
   },
 ];
 
-module.exports = iamData;
-
 const seedIAM = async () => {
   const client = await pool.connect();
   try {
@@ -284,7 +282,7 @@ const seedIAM = async () => {
 
     await client.query('COMMIT');
   } catch (error) {
-    console.log('ERROR SEEDING IAM DATA : ',   error);
+    console.log('ERROR SEEDING IAM DATA : ', error);
   } finally {
     client.release();
   }

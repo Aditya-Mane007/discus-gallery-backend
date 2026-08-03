@@ -17,9 +17,63 @@ CREATE TABLE portal.portal (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (
+    user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    name CITEXT NOT NULL,
+    email CITEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+
+    profile_photo_url TEXT,
+    -- Legacy (keep temporarily for migration)
+    jwt_secret TEXT NOT NULL,
+
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,
+
+    CONSTRAINT fk_user_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_user_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth.user_sessions(
+    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    user_id UUID NOT NULL,
+    device_name TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    ip_address INET NOT NULL,
+    user_agent TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    revoked_at TIMESTAMPTZ,
+    revoked_by UUID,
+    expires_at TIMESTAMPTZ,
+
+    CONSTRAINT fk_user
+        FOREIGN KEY(user_id)
+        REFERENCES auth.users(user_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_revoked_by
+        FOREIGN KEY(revoked_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
+);
+
 
 CREATE SCHEMA IF NOT EXISTS modules;
-
 CREATE TABLE modules.module (
     module_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -51,15 +105,14 @@ CREATE TABLE modules.module (
 
     CONSTRAINT fk_module_created_by
         FOREIGN KEY (created_by)
-        REFERENCES admin.users(user_id)
+        REFERENCES auth.users(user_id)
         ON DELETE SET NULL,
 
     CONSTRAINT fk_module_updated_by
         FOREIGN KEY (updated_by)
-        REFERENCES admin.users(user_id)
+        REFERENCES auth.users(user_id)
         ON DELETE SET NULL
 );
-
 
 CREATE TABLE modules.resource (
     resource_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -91,15 +144,14 @@ CREATE TABLE modules.resource (
 
     CONSTRAINT fk_resource_created_by
         FOREIGN KEY (created_by)
-        REFERENCES admin.users(user_id)
+        REFERENCES auth.users(user_id)
         ON DELETE SET NULL,
 
     CONSTRAINT fk_resource_updated_by
         FOREIGN KEY (updated_by)
-        REFERENCES admin.users(user_id)
+        REFERENCES auth.users(user_id)
         ON DELETE SET NULL
 );
-
 
 CREATE TABLE modules.resource_permission (
     resource_permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -133,12 +185,12 @@ CREATE TABLE modules.resource_permission (
 
     CONSTRAINT fk_resource_permission_created_by
         FOREIGN KEY (created_by)
-        REFERENCES admin.users(user_id)
+        REFERENCES auth.users(user_id)
         ON DELETE SET NULL,
 
     CONSTRAINT fk_resource_permission_updated_by
         FOREIGN KEY (updated_by)
-        REFERENCES admin.users(user_id)
+        REFERENCES auth.users(user_id)
         ON DELETE SET NULL,
 
     CONSTRAINT chk_resource_permission_action
@@ -147,3 +199,189 @@ CREATE TABLE modules.resource_permission (
     CONSTRAINT chk_module_slug
        CHECK (length(trim(slug::text)) > 0)
 );
+
+
+CREATE SCHEMA IF NOT EXISTS organization;
+CREATE TABLE IF NOT EXISTS organization.organization (
+
+    organization_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    portal_id UUID NOT NULL,
+
+    name CITEXT NOT NULL,
+    slug CITEXT NOT NULL,
+    description TEXT,
+
+    email CITEXT,
+    phone VARCHAR(20),
+
+    logo_url TEXT,
+
+    is_system BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,
+
+    CONSTRAINT uq_org_slug
+        UNIQUE (portal_id, slug),
+
+    CONSTRAINT fk_org_portal
+        FOREIGN KEY (portal_id)
+        REFERENCES portal.portal(portal_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_org_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_org_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth.permission_policy(
+    policy_document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    policy_document JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,  
+
+     CONSTRAINT fk_permission_document_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_permission_document_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS organization.organization_membership (
+
+    organization_membership_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    organization_id UUID NOT NULL,
+
+    user_id UUID NOT NULL,
+
+    is_owner BOOLEAN NOT NULL DEFAULT FALSE,
+
+    status VARCHAR(30) NOT NULL DEFAULT 'active',
+
+    permission_version INTEGER NOT NULL DEFAULT 1,
+    
+    policy_document_id UUID NOT NULL,
+
+    joined_at TIMESTAMPTZ,
+
+    invited_at TIMESTAMPTZ,
+
+    activated_at TIMESTAMPTZ,
+
+    suspended_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,
+
+    CONSTRAINT uq_org_user
+        UNIQUE (organization_id, user_id),
+
+    CONSTRAINT fk_membership_org
+        FOREIGN KEY (organization_id)
+        REFERENCES organization.organization(organization_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_membership_user
+        FOREIGN KEY (user_id)
+        REFERENCES auth.users(user_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_membership_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_membership_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_membership_status
+        CHECK (
+            status IN (
+                'pending',
+                'active',
+                'inactive',
+                'suspended'
+            )
+        ),
+    
+    CONSTRAINT fk_permission_policy_id
+        FOREIGN KEY (policy_document_id)
+        REFERENCES auth.permission_policy(policy_document_id)
+        ON DELETE RESTRICT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_single_owner_per_org
+ON organization.organization_membership (organization_id)
+WHERE is_owner = TRUE;
+
+CREATE TABLE IF NOT EXISTS organization.organization_invitation (
+
+    organization_invitation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    organization_id UUID NOT NULL,
+
+    email CITEXT NOT NULL,
+
+    token_hash TEXT NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+
+    expires_at TIMESTAMPTZ NOT NULL,
+
+    accepted_at TIMESTAMPTZ,
+
+    invited_by UUID NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_invitation_org
+        FOREIGN KEY (organization_id)
+        REFERENCES organization.organization(organization_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_invited_by
+        FOREIGN KEY (invited_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE RESTRICT
+);
+
+-- {
+--   "version": 3,
+--   "permissions": {
+--     "user:create": true,
+--     "user:read": true,
+--     "user:update": true,
+--     "user:delete": false,
+
+--     "organization:create": false,
+--     "organization:read": true,
+
+--     "seller:create": true,
+--     "seller:update": true,
+--     "seller:delete": false
+--   }
+-- }

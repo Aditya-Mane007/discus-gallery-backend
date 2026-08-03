@@ -21,7 +21,14 @@ const fetchRootUser = async (client) => {
   }
 };
 
-const seedModuleData = async (client, name, slug, description, user_id) => {
+const seedModuleData = async (
+  client,
+  name,
+  slug,
+  description,
+  user_id,
+  display_order,
+) => {
   console.log('STARTED : SEEDING MODULE DATA');
   try {
     const moduleDataQuery = {

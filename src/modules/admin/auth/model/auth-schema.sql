@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS admin.users(
     portal_id UUID NOT NULL,
     permission_version INTEGER NOT NULL DEFAULT 1,
     jwt_secret TEXT NOT NULL,
-    is_root BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -22,7 +22,7 @@ export const TABLE_SCHEMA = {
   // ADMIN
   ADMIN_AUTH: 'admin.users',
   ADMIN_SESSION: 'admin.user_sessions',
-  ADMIN_PORTAL: 'admin.portal',
+  PORTAL: 'portal.portal',
   ADMIN_OTP: 'admin.otps',
 
   // MODULES
