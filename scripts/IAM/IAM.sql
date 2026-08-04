@@ -80,7 +80,7 @@ CREATE TABLE modules.module (
     portal_id UUID NOT NULL,
 
     name CITEXT NOT NULL,
-    slug CITEXT NOT NULL,
+    slug CITEXT NOT NULL UNIQUE,
     description TEXT,
 
     icon VARCHAR(100),
@@ -120,7 +120,7 @@ CREATE TABLE modules.resource (
     module_id UUID NOT NULL,
 
     name CITEXT NOT NULL,
-    slug CITEXT NOT NULL,
+    slug CITEXT NOT NULL UNIQUE,
     description TEXT,
 
     display_order SMALLINT NOT NULL DEFAULT 0,
@@ -159,7 +159,7 @@ CREATE TABLE modules.resource_permission (
     resource_id UUID NOT NULL,
 
     name CITEXT NOT NULL,
-    slug CITEXT NOT NULL,
+    slug CITEXT NOT NULL UNIQUE,
     action CITEXT NOT NULL,
     description TEXT,
 

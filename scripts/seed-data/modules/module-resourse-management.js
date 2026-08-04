@@ -28,36 +28,48 @@ const module_resource_seed_data = [
             slug: 'user:create',
             action: 'create',
             description: 'Create a new user',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read User',
             slug: 'user:read',
             action: 'read',
             description: 'View user details',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update User',
             slug: 'user:update',
             action: 'update',
             description: 'Update user details',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete User',
             slug: 'user:delete',
             action: 'delete',
             description: 'Delete user',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Activate User',
             slug: 'user:activate',
             action: 'activate',
             description: 'Activate user',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Deactivate User',
             slug: 'user:deactivate',
             action: 'deactivate',
             description: 'Deactivate user',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -76,24 +88,32 @@ const module_resource_seed_data = [
             slug: 'membership:create',
             action: 'create',
             description: 'Add user to organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read Membership',
             slug: 'membership:read',
             action: 'read',
             description: 'View memberships',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update Membership',
             slug: 'membership:update',
             action: 'update',
             description: 'Update membership',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete Membership',
             slug: 'membership:delete',
             action: 'delete',
             description: 'Remove user from organization',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -112,18 +132,24 @@ const module_resource_seed_data = [
             slug: 'session:read',
             action: 'read',
             description: 'View user sessions',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Revoke Session',
             slug: 'session:revoke',
             action: 'revoke',
             description: 'Revoke a user session',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Revoke All Sessions',
             slug: 'session:revoke-all',
             action: 'revoke-all',
             description: 'Revoke all sessions',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -156,36 +182,48 @@ const module_resource_seed_data = [
             slug: 'organization:create',
             action: 'create',
             description: 'Create organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read Organization',
             slug: 'organization:read',
             action: 'read',
             description: 'View organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update Organization',
             slug: 'organization:update',
             action: 'update',
             description: 'Update organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete Organization',
             slug: 'organization:delete',
             action: 'delete',
             description: 'Delete organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Suspend Organization',
             slug: 'organization:suspend',
             action: 'suspend',
             description: 'Suspend organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Activate Organization',
             slug: 'organization:activate',
             action: 'activate',
             description: 'Activate organization',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -204,24 +242,32 @@ const module_resource_seed_data = [
             slug: 'invitation:create',
             action: 'create',
             description: 'Invite user to organization',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'View Invitations',
             slug: 'invitation:read',
             action: 'read',
             description: 'View invitations',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Resend Invitation',
             slug: 'invitation:resend',
             action: 'resend',
             description: 'Resend invitation',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Cancel Invitation',
             slug: 'invitation:cancel',
             action: 'cancel',
             description: 'Cancel invitation',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -254,30 +300,40 @@ const module_resource_seed_data = [
             slug: 'role:create',
             action: 'create',
             description: 'Create role',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read Role',
             slug: 'role:read',
             action: 'read',
             description: 'View role',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update Role',
             slug: 'role:update',
             action: 'update',
             description: 'Update role',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete Role',
             slug: 'role:delete',
             action: 'delete',
             description: 'Delete role',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Assign Role',
             slug: 'role:assign',
             action: 'assign',
             description: 'Assign role to membership',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -296,24 +352,32 @@ const module_resource_seed_data = [
             slug: 'role-group:create',
             action: 'create',
             description: 'Create role group',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read Role Group',
             slug: 'role-group:read',
             action: 'read',
             description: 'View role groups',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update Role Group',
             slug: 'role-group:update',
             action: 'update',
             description: 'Update role group',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete Role Group',
             slug: 'role-group:delete',
             action: 'delete',
             description: 'Delete role group',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -332,24 +396,32 @@ const module_resource_seed_data = [
             slug: 'policy:create',
             action: 'create',
             description: 'Create policy',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read Policy',
             slug: 'policy:read',
             action: 'read',
             description: 'View policy',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update Policy',
             slug: 'policy:update',
             action: 'update',
             description: 'Update policy',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete Policy',
             slug: 'policy:delete',
             action: 'delete',
             description: 'Delete policy',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -368,24 +440,32 @@ const module_resource_seed_data = [
             slug: 'user-group:create',
             action: 'create',
             description: 'Create user group',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Read User Group',
             slug: 'user-group:read',
             action: 'read',
             description: 'View user groups',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Update User Group',
             slug: 'user-group:update',
             action: 'update',
             description: 'Update user group',
+            is_system: true,
+            is_active: true,
           },
           {
             name: 'Delete User Group',
             slug: 'user-group:delete',
             action: 'delete',
             description: 'Delete user group',
+            is_system: true,
+            is_active: true,
           },
         ],
       },
@@ -404,89 +484,100 @@ const seedModuleResourceData = async () => {
       text: `SELECT portal_id FROM ${TABLE_SCHEMA?.PORTAL} WHERE slug='admin'`,
     };
 
-    const adminPortalId = await client.query(getPortalAdminDataQuery);
+    const adminPortalRes = await client.query(getPortalAdminDataQuery);
+
+    const adminPortalId = adminPortalRes?.rows[0]?.portal_id;
+
     for (moduelesData of module_resource_seed_data) {
       const module = moduelesData?.module;
+
       const insertModuelData = {
         name: 'insert-module-data',
         text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_MODULE} 
                 (portal_id,name,slug,description,icon,display_order,is_system,is_active) 
-                VALUES($1,$2,$3,$4,$5,$6,$7,$8)  
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                 ON CONFLICT (slug)
                 DO UPDATE SET
-                   name=EXCLUDED.name
+                   name=EXCLUDED.name,
                    description=EXCLUDED.description
-                
-                RETURNING module_id
+
+                RETURNING module_id;
         `,
-        VALUES: [
-          adminPortalId,
-          module?.name,
-          module?.slug,
-          module?.description,
-          module?.icon,
-          module?.display_order,
-          module?.is_system,
-          module?.is_active,
+        values: [
+          adminPortalId, // $1 (uuid)
+          module?.name || '', // $2 (public.citext)
+          module?.slug || '', // $3 (public.citext)
+          module?.description || null, // $4 (text NULL)
+          module?.icon || null, // $5 (character varying)
+          Number(module?.display_order) || 0, // $6 (smallint)
+          Boolean(module?.is_system), // $7 (boolean)
+          Boolean(module?.is_active),
         ],
       };
 
-      const resources = moduelesData?.module?.resources;
+      const moduleDataRes = await client.query(insertModuelData);
 
-      const moduleId = insertModuelData;
+      const resources = moduelesData?.resources;
+
+      const moduleId = moduleDataRes?.rows[0]?.module_id;
 
       for (const resource of resources) {
         const insertResourcelData = {
-          name: 'insert-module-data',
+          name: 'insert-resource-data',
           text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_RESOURCE} 
-                (module_id,portal_id,name,slug,description,icon,display_order,is_system,is_active) 
-                VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)  
+                (module_id,name,slug,description,display_order,is_system,is_active) 
+                VALUES($1,$2,$3,$4,$5,$6,$7)  
                 ON CONFLICT (slug)
                 DO UPDATE SET
-                   name=EXCLUDED.name
+                   name=EXCLUDED.name,
                    description=EXCLUDED.description
                 
-                RETURNING resource_id
+                RETURNING resource_id;
         `,
-          VALUES: [
+          values: [
             moduleId,
-            adminPortalId,
             resource?.name,
             resource?.slug,
             resource?.description,
-            resource?.icon,
             resource?.display_order,
             resource?.is_system,
             resource?.is_active,
           ],
         };
 
-        const resourceId = insertResourcelData;
+        const resourceDataRes = await client.query(insertResourcelData);
 
-        const resourcePermissionData =
-          moduelesData?.module?.resources?.permissions;
+        const resourceId = resourceDataRes?.rows[0]?.resource_id;
+
+        const resourcePermissionData = resource?.permissions;
+
+        for (const permission of resourcePermissionData) {
+          const { name, slug, action, description, is_system, is_active } =
+            permission;
+          const insertResourcePermission = {
+            name: 'insert-resoruce-permission-data',
+            text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
+                    (resource_id,name,slug,action,description,is_system,is_active)
+                    VALUES($1,$2,$3,$4,$5,$6,$7)
+                    ON CONFLICT (slug)
+                    DO UPDATE SET
+                       name=EXCLUDED.name,
+                       description=EXCLUDED.description;
+            `,
+            values: [
+              resourceId,
+              name,
+              slug,
+              action,
+              description,
+              is_system,
+              is_active,
+            ],
+          };
+
+          await client.query(insertResourcePermission);
+        }
       }
-
-      const insertResourcePermission = {
-        name: 'insert-resoruce-permission-data',
-        text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
-                (resource_id,name,slug,action,description,is_system,is_active)
-                VALUES($1,$2,$3,$4,$5,$6,$7)
-                ON CONFLIT (slug)
-                DO UPDATE SET
-                   name=EXCLUDED.name
-                   description=EXCLUDED.description
-        `,
-        values: [
-          resource_id,
-          name,
-          slug,
-          action,
-          description,
-          is_system,
-          is_active,
-        ],
-      };
     }
 
     await client.query('COMMIT');
@@ -497,3 +588,5 @@ const seedModuleResourceData = async () => {
     await client.release();
   }
 };
+
+seedModuleResourceData();
