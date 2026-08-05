@@ -208,8 +208,8 @@ CREATE TABLE IF NOT EXISTS organization.organization (
 
     portal_id UUID NOT NULL,
 
-    name CITEXT NOT NULL,
-    slug CITEXT NOT NULL,
+    name CITEXT NOT NULL UNIQUE,
+    slug CITEXT NOT NULL UNIQUE,
     description TEXT,
 
     email CITEXT,
@@ -227,7 +227,7 @@ CREATE TABLE IF NOT EXISTS organization.organization (
     updated_by UUID,
 
     CONSTRAINT uq_org_slug
-        UNIQUE (portal_id, slug),
+        UNIQUE (portal_id,name,slug),
 
     CONSTRAINT fk_org_portal
         FOREIGN KEY (portal_id)

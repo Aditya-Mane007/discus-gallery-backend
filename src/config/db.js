@@ -1,15 +1,15 @@
-const { Pool } = require("pg");
-require("dotenv").config();
+const { Pool } = require('pg');
+require('dotenv').config();
 
 const environment = process.env.NODE_ENV;
 
-if (environment === "production") {
+if (environment === 'production') {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
   });
 
-  pool.on("connect", () => {
-    console.log("NEON DB Connection pool establised with database");
+  pool.on('connect', () => {
+    console.log('NEON DB Connection pool establised with database');
   });
   module.exports = { pool };
 } else {
@@ -21,8 +21,8 @@ if (environment === "production") {
     port: process.env.DB_PORT,
   });
 
-  pool.on("connect", () => {
-    console.log("Local Connection pool establised with database");
+  pool.on('connect', () => {
+    console.log('Local Connection pool establised with database');
   });
   module.exports = { pool };
 }

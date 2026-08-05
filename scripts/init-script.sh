@@ -50,6 +50,7 @@ SEED_FILES=(
     # "src/modules/admin/module/seed-data/iam-seed-data.js"
     "scripts/seed-data/modules/portal-seed-data.js"
     "scripts/seed-data/modules/module-resourse-management.js"
+    "scripts/seed-data/modules/org.js"
 )
 
 execute_sql_files() {
