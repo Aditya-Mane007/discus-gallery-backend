@@ -59,7 +59,16 @@ const getUserById = async (user_id, session_id) => {
   if (!session_id) {
     const query = {
       name: 'get-userInfo-by-id',
-      text: `SELECT user_id, name, email, profile_photo_url, jwt_secret FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
+      text: `SELECT 
+             u.user_id, 
+             u.name, u.email, 
+             u.profile_photo_url, 
+             u.jwt_secret,
+            org.organization_membership_id  FROM 
+            ${TABLE_SCHEMA.ADMIN_AUTH} u 
+            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} org 
+            ON u.user_id = org.user_id  
+            WHERE u.user_id=$1`,
       values: [user_id],
     };
 
@@ -78,13 +87,14 @@ const getUserById = async (user_id, session_id) => {
                 u.jwt_secret,
    
                 s.session_id,
-                s.is_active
+                s.is_active,
             
             FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u 
             INNER JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
+            LEFT JOIN ${TABLE_SCHEMA?.ADMIN_ORGANIZATION_MEMBERSHIP} org
+            LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
             ON u.user_id = s.user_id
-            
-            WHERE u.user_id=$1 AND s.session_id=$2 AND s.is_active=TRUE
+            ON org.user_id = u.user_id
     `,
     values: [user_id, session_id],
   };

@@ -57,9 +57,9 @@ CREATE TABLE IF NOT EXISTS auth.user_sessions(
     user_agent TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    revoked_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ now(),
     revoked_by UUID,
-    expires_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ now(),
 
     CONSTRAINT fk_user
         FOREIGN KEY(user_id)

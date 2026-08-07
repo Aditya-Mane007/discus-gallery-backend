@@ -525,6 +525,8 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const userInfo = (await getUserById(user)).rows[0];
 
+  console.log('USER INFO : ', userInfo);
+
   const { otp } = req.body;
 
   if (!(await bcrypt.compare(otp, parasedTempSessionData?.otp_hashed))) {
@@ -558,7 +560,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
 
   const refreshToken = generateRefreshToken();
 
-  const expires_at = new Date().getTime() + ACTUAL_SESSION_EXPIRTY_TIME;
+  const expires_at = new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME);
 
   const session = await createSession(
     req.user,
@@ -577,6 +579,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       email: userInfo?.email,
       profile_photo_url: userInfo?.profile_photo_url,
       session_id: sessionId,
+      membeship_id: userInfo?.organization_membership_id,
     },
     userInfo?.jwt_secret,
   );
