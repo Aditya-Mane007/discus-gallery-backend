@@ -22,6 +22,7 @@ export const TABLE_SCHEMA = {
   // ADMIN
   ADMIN_AUTH: 'auth.users',
   ADMIN_SESSION: 'auth.user_sessions',
+  ADMIN_TEMP_SESSION: 'auth.temp_sessions',
   PORTAL: 'portal.portal',
   ADMIN_OTP: 'admin.otps',
 
@@ -33,8 +34,9 @@ export const TABLE_SCHEMA = {
   // PERMISSION POLICY
   PERMISSION_POLICY: 'auth.permission_policy',
   // ORGANIZATION
-  ORG: ' organization. organization',
-  ORG_MEMBERSHIP: 'organization. organization_membership',
+  ORG: 'organization.organization',
+  ORG_MEMBERSHIP: 'organization.organization_membership',
+  ORG_INVITATION: 'organization.organization_invitation',
 };
 
 export const JWT_SECRET_BYTES = 64;

@@ -407,7 +407,10 @@ const getRefreshToken = asyncHandler(async (req, res) => {
       return res.status(401).json({ message: 'Session expired' });
     }
 
-    if (!refreshToken === refreshTokenFromDb?.rows[0]?.refresh_token) {
+    const storedRefreshToken = refreshTokenFromDb?.rows[0]?.refresh_token;
+    const isValid = await bcrypt.compare(refreshToken, storedRefreshToken);
+
+    if (!isValid) {
       const status = false;
       await updateRefreshToken(null, sessionId, status);
       clearAuthCookies(res);
@@ -571,6 +574,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   const ip = req?.ip || req?.socket?.remoteAddress;
 
   const refreshToken = generateRefreshToken();
+  const hashedRefreshToken = await bcrypt.hash(refreshToken, HASHED_SALT);
 
   const expires_at = new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME);
 
@@ -579,7 +583,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     deviceName,
     ip,
     deviceName,
-    refreshToken,
+    hashedRefreshToken,
     expires_at,
   );
 
