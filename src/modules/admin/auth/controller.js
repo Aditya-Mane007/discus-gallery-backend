@@ -310,7 +310,19 @@ const logoutController = async (req, res) => {
 
 // Get User
 const authoriseController = async (req, res) => {
-  const userData = (await getMeById(req?.user)).rows[0];
+  console.log('REQ USER : ', req.user);
+
+  if (!req.user) {
+    res.status(401).json({
+      message: 'User is not authorised, please login',
+    });
+  }
+
+  const useres = await getMeById(req?.user);
+
+  const userData = useres?.rows[0];
+
+  console.log('USER DATA : ', userData);
   const userInfo = {
     user_id: userData?.user_id,
     name: userData?.name,
@@ -330,7 +342,13 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   const refreshToken = cookies['refresh-token'];
   const decodedToken = jwt.decode(token, { complete: true });
 
+  console.log('DECODED TOKEN FOR REFRESH : ', decodedToken);
+
   const sessionId = decodedToken?.payload?.session_id;
+
+  console.log('REFRESH TOKEN : ', refreshToken);
+  console.log('SESSION ID : ', sessionId);
+  console.log('SESSION ID : ', sessionId);
 
   if (!refreshToken || !sessionId) {
     clearAuthCookies(res);
@@ -378,6 +396,8 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   try {
     const refreshTokenFromDb = await checkRefreshToken(sessionId);
 
+    console.log('REFRESH TOKEN FROM DB : ', refreshTokenFromDb);
+
     if (refreshTokenFromDb?.rowCount < 1) {
       const status = false;
       await updateRefreshToken(null, sessionId, status);
@@ -387,12 +407,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
       return res.status(401).json({ message: 'Session expired' });
     }
 
-    const isValid = await bcrypt.compare(
-      refreshToken,
-      refreshTokenFromDb?.rows[0]?.refresh_token,
-    );
-
-    if (!isValid) {
+    if (!refreshToken === refreshTokenFromDb?.rows[0]?.refresh_token) {
       const status = false;
       await updateRefreshToken(null, sessionId, status);
       clearAuthCookies(res);
@@ -415,6 +430,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
         email: userInfo?.email,
         profile_photo_url: userInfo?.profile_photo_url,
         session_id: sessionId,
+        membeship_id: userInfo?.organization_membership_id,
       },
       userInfo.jwt_secret,
     );
@@ -523,10 +539,6 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     });
   }
 
-  const userInfo = (await getUserById(user)).rows[0];
-
-  console.log('USER INFO : ', userInfo);
-
   const { otp } = req.body;
 
   if (!(await bcrypt.compare(otp, parasedTempSessionData?.otp_hashed))) {
@@ -572,13 +584,14 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   );
 
   const sessionId = session?.rows[0]?.session_id;
+  const userInfo = (await getUserById(user, sessionId)).rows[0];
 
   const token = generateToken(
     {
       user_id: req.user,
       email: userInfo?.email,
       profile_photo_url: userInfo?.profile_photo_url,
-      session_id: sessionId,
+      session_id: userInfo?.session_id,
       membeship_id: userInfo?.organization_membership_id,
     },
     userInfo?.jwt_secret,

@@ -60,15 +60,14 @@ const getUserById = async (user_id, session_id) => {
     const query = {
       name: 'get-userInfo-by-id',
       text: `SELECT 
-             u.user_id, 
-             u.name, u.email, 
-             u.profile_photo_url, 
-             u.jwt_secret,
-            org.organization_membership_id  FROM 
-            ${TABLE_SCHEMA.ADMIN_AUTH} u 
-            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} org 
-            ON u.user_id = org.user_id  
-            WHERE u.user_id=$1`,
+              u.user_id, 
+              u.name, 
+              u.email, 
+              u.profile_photo_url, 
+              u.jwt_secret
+              
+              FROM ${TABLE_SCHEMA.ADMIN_AUTH} u 
+              WHERE u.user_id=$1`,
       values: [user_id],
     };
 
@@ -77,24 +76,26 @@ const getUserById = async (user_id, session_id) => {
   }
   const query = {
     name: 'get-user-by-id',
-    text: ` SELECT 
-                u.user_id, 
-                u.name, 
-                u.email, 
-                u.password_hash, 
-                u.profile_photo_url, 
-                u.portal_id,
-                u.jwt_secret,
+    text: `SELECT 
+            u.user_id, 
+            u.name, 
+            u.email, 
+            u.password_hash, 
+            u.profile_photo_url,
+            u.jwt_secret,
    
-                s.session_id,
-                s.is_active,
-            
-            FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u 
-            INNER JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
-            LEFT JOIN ${TABLE_SCHEMA?.ADMIN_ORGANIZATION_MEMBERSHIP} org
-            LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
+            s.session_id,
+            s.is_active,
+
+            m.organization_membership_id
+
+            FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
+            LEFT JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
             ON u.user_id = s.user_id
-            ON org.user_id = u.user_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
+            ON u.user_id = m.user_id
+
+            WHERE u.user_id = $1 AND s.session_id = $2 AND s.is_active = TRUE
     `,
     values: [user_id, session_id],
   };
@@ -115,13 +116,19 @@ const getUserBYIdInTempSession = async (user_id) => {
 };
 
 const getMeById = async (id) => {
-  const query = {
-    name: 'get-me-by-id',
-    text: `SELECT user_id, name, email, profile_photo_url FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
-    values: [id],
-  };
-  const result = await pool.query(query);
-  return result;
+  try {
+    const query = {
+      name: 'get-me-by-id',
+      text: `SELECT user_id, name, email, profile_photo_url FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
+      values: [id],
+    };
+    const result = await pool.query(query);
+
+    console.log('RESULT : ', result);
+    return result;
+  } catch (error) {
+    console.log('Error : ', error);
+  }
 };
 
 const gettempSession = async (id) => {
@@ -316,18 +323,22 @@ const checkRefreshToken = async (sessionId) => {
       name: 'get-refresh-token-from-db',
       text: `
         SELECT 
-          s.session_id AS "sessionId",
+          s.session_id,
           s.refresh_token,
 
           u.user_id,
           u.name,
           u.email,
           u.profile_photo_url,
-          u.jwt_secret
+          u.jwt_secret,
 
-        FROM ${TABLE_SCHEMA?.ADMIN_SESSION} s
-        INNER JOIN ${TABLE_SCHEMA?.ADMIN_AUTH} u
-          ON u.user_id = s.user_id
+          m.organization_membership_id
+
+        FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
+        INNER JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s 
+        ON u.user_id = s.user_id
+        LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
+        ON u.user_id = m.user_id
         
         WHERE 
           s.session_id = $1

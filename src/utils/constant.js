@@ -31,7 +31,7 @@ export const TABLE_SCHEMA = {
   MODULES_RESOURCE_PERMISSION: 'modules.resource_permission',
 
   // PERMISSION POLICY
-  PERMISSION_POLICY: 'auth. permission_policy',
+  PERMISSION_POLICY: 'auth.permission_policy',
   // ORGANIZATION
   ORG: ' organization. organization',
   ORG_MEMBERSHIP: 'organization. organization_membership',

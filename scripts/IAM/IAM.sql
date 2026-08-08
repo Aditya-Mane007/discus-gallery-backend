@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS auth.user_sessions(
     refresh_token TEXT NOT NULL,
     ip_address INET NOT NULL,
     user_agent TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    revoked_at TIMESTAMPTZ now(),
+    revoked_at TIMESTAMPTZ DEFAULT NOW(),
     revoked_by UUID,
-    expires_at TIMESTAMPTZ now(),
+    expires_at TIMESTAMPTZ DEFAULT NOW(),
 
     CONSTRAINT fk_user
         FOREIGN KEY(user_id)
@@ -245,25 +245,7 @@ CREATE TABLE IF NOT EXISTS organization.organization (
         ON DELETE SET NULL
 );
 
-CREATE TABLE IF NOT EXISTS auth.permission_policy(
-    policy_document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    policy_document JSONB DEFAULT '{}'::JSONB NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    created_by UUID,
-    updated_by UUID,  
-
-     CONSTRAINT fk_permission_document_created_by
-        FOREIGN KEY (created_by)
-        REFERENCES auth.users(user_id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_permission_document_updated_by
-        FOREIGN KEY (updated_by)
-        REFERENCES auth.users(user_id)
-        ON DELETE SET NULL
-);
 
 CREATE TABLE IF NOT EXISTS organization.organization_membership (
 
@@ -277,17 +259,13 @@ CREATE TABLE IF NOT EXISTS organization.organization_membership (
 
     status VARCHAR(30) NOT NULL DEFAULT 'active',
 
-    permission_version INTEGER NOT NULL DEFAULT 1,
-    
-    policy_document_id UUID NOT NULL,
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
 
-    joined_at TIMESTAMPTZ,
+    invited_at TIMESTAMPTZ DEFAULT NOW(),
 
-    invited_at TIMESTAMPTZ,
+    activated_at TIMESTAMPTZ DEFAULT NOW(),
 
-    activated_at TIMESTAMPTZ,
-
-    suspended_at TIMESTAMPTZ,
+    suspended_at TIMESTAMPTZ DEFAULT NOW(),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -326,12 +304,34 @@ CREATE TABLE IF NOT EXISTS organization.organization_membership (
                 'inactive',
                 'suspended'
             )
-        ),
-    
-    CONSTRAINT fk_permission_policy_id
-        FOREIGN KEY (policy_document_id)
-        REFERENCES auth.permission_policy(policy_document_id)
-        ON DELETE RESTRICT
+        )
+);
+
+CREATE TABLE IF NOT EXISTS auth.permission_policy(
+    policy_document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    membership_id UUID NOT NULL,
+    permission_version INTEGER DEFAULT 1,
+    policy_document JSONB DEFAULT '{}'::JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,  
+
+    CONSTRAINT fk_membership_id
+        FOREIGN KEY(membership_id)
+        REFERENCES organization.organization_membership(organization_membership_id)
+        ON DELETE CASCADE,
+
+     CONSTRAINT fk_permission_document_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_permission_document_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_single_owner_per_org

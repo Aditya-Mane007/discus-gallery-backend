@@ -95,6 +95,16 @@ const seedRootOrg = async () => {
     console.log('USER ID : ', userId);
     console.log('orgId : ', orgId);
 
+    const insertRootUserMembershipQuery = {
+      name: 'insert-root-user-membership',
+      text: `INSERT INTO ${TABLE_SCHEMA?.ORG_MEMBERSHIP} (user_id,organization_id,is_owner) VALUES ($1,$2,$3) RETURNING organization_membership_id`,
+      values: [userId, orgId, true],
+    };
+
+    const membeshipRes = await client.query(insertRootUserMembershipQuery);
+
+    const membeshipId = membeshipRes?.rows[0]?.organization_membership_id;
+
     const fetchRootResourcePermissionQuery = {
       name: 'fetch-root-resource-permission',
       text: `SELECT slug FROM ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}`,
@@ -119,23 +129,11 @@ const seedRootOrg = async () => {
 
     const insertRootUserPolicyQuery = {
       name: 'insert-root-user-policy',
-      text: `INSERT INTO ${TABLE_SCHEMA?.PERMISSION_POLICY} (policy_document) VALUES ($1::jsonb) RETURNING policy_document_id`,
-      values: [JSON.stringify(policyDocument)],
+      text: `INSERT INTO ${TABLE_SCHEMA?.PERMISSION_POLICY} (membership_id,policy_document) VALUES ($1,$2::jsonb) RETURNING policy_document_id`,
+      values: [membeshipId, JSON.stringify(policyDocument)],
     };
 
     const permissionRes = await client.query(insertRootUserPolicyQuery);
-
-    const permissionId = permissionRes?.rows[0]?.policy_document_id;
-
-    console.log('permissionId ID : ', permissionId);
-
-    const insertRootUserMembershipQuery = {
-      name: 'insert-root-user-membership',
-      text: `INSERT INTO ${TABLE_SCHEMA?.ORG_MEMBERSHIP} (user_id, policy_document_id,organization_id,is_owner,permission_version) VALUES ($1,$2,$3,$4,$5)`,
-      values: [userId, permissionId, orgId, true, 1],
-    };
-
-    await client.query(insertRootUserMembershipQuery);
   } catch (error) {
     console.log('Error seeding org data : ', error);
   } finally {
@@ -166,79 +164,79 @@ const seedRootOrg = async () => {
 //   }
 // };
 
-const seedRootuser = async () => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const password_hash = await bcrypt.hash(
-      process.env.ROOT_ACCOUNT_PASSWORD,
-      HASHED_SALT,
-    );
-    const query = {
-      name: 'seed-root-user-data',
-      text: `INSERT INTO ${TABLE_SCHEMA.ADMIN_AUTH} (name, email, password_hash, jwt_secret) VALUES ($1, $2, $3, $4)`,
-      values: [
-        process.env.ROOT_ACCOUNT_NAME,
-        process.env.ROOT_ACCOUNT_EMAIL,
-        password_hash,
-        process.env.ROOT_ACCOUNT_JWT_SECRET,
-      ],
-    };
+// const seedRootuser = async () => {
+//   const client = await pool.connect();
+//   try {
+//     await client.query('BEGIN');
+//     const password_hash = await bcrypt.hash(
+//       process.env.ROOT_ACCOUNT_PASSWORD,
+//       HASHED_SALT,
+//     );
+//     const query = {
+//       name: 'seed-root-user-data',
+//       text: `INSERT INTO ${TABLE_SCHEMA.ADMIN_AUTH} (name, email, password_hash, jwt_secret) VALUES ($1, $2, $3, $4)`,
+//       values: [
+//         process.env.ROOT_ACCOUNT_NAME,
+//         process.env.ROOT_ACCOUNT_EMAIL,
+//         password_hash,
+//         process.env.ROOT_ACCOUNT_JWT_SECRET,
+//       ],
+//     };
 
-    const result = await client.query(query);
+//     const result = await client.query(query);
 
-    await client.query('COMMIT');
-  } catch (error) {
-    console.log('ERROR SEEDING ROOT USER ', error);
-  } finally {
-    await client.release();
-  }
-};
+//     await client.query('COMMIT');
+//   } catch (error) {
+//     console.log('ERROR SEEDING ROOT USER ', error);
+//   } finally {
+//     await client.release();
+//   }
+// };
 
-const seedRootUserPolicy = async () => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+// const seedRootUserPolicy = async () => {
+//   const client = await pool.connect();
+//   try {
+//     await client.query('BEGIN');
 
-    const fetchRootResourcePermissionQuery = {
-      name: 'fetch-root-resource-permission',
-      text: `SELECT slug FROM ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}`,
-    };
+//     const fetchRootResourcePermissionQuery = {
+//       name: 'fetch-root-resource-permission',
+//       text: `SELECT slug FROM ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}`,
+//     };
 
-    const res = await client.query(fetchRootResourcePermissionQuery);
+//     const res = await client.query(fetchRootResourcePermissionQuery);
 
-    const perrmissionObj = {};
+//     const perrmissionObj = {};
 
-    const rootUserPermission = res?.rows
-      .map((row) => ({ [row?.slug]: true }))
-      ?.map(
-        (obj) => (perrmissionObj[Object.keys(obj)] = obj[Object.keys(obj)]),
-      );
+//     const rootUserPermission = res?.rows
+//       .map((row) => ({ [row?.slug]: true }))
+//       ?.map(
+//         (obj) => (perrmissionObj[Object.keys(obj)] = obj[Object.keys(obj)]),
+//       );
 
-    const policyDocument = {
-      permission_version: 1,
-      permissions: {
-        ...perrmissionObj,
-      },
-    };
+//     const policyDocument = {
+//       permission_version: 1,
+//       permissions: {
+//         ...perrmissionObj,
+//       },
+//     };
 
-    const insertRootUserPolicyQuery = {
-      name: 'insert-root-user-policy',
-      text: `INSERT INTO ${TABLE_SCHEMA?.PERMISSION_POLICY} (policy_document) VALUES ($1::jsonb)`,
-      values: [JSON.stringify(policyDocument)],
-    };
+//     const insertRootUserPolicyQuery = {
+//       name: 'insert-root-user-policy',
+//       text: `INSERT INTO ${TABLE_SCHEMA?.PERMISSION_POLICY} (policy_document) VALUES ($1::jsonb)`,
+//       values: [JSON.stringify(policyDocument)],
+//     };
 
-    const permissionRes = await client.query(insertRootUserPolicyQuery);
+//     const permissionRes = await client.query(insertRootUserPolicyQuery);
 
-    await client.query('COMMIT');
-  } catch (error) {
-    console.log('ERROR SEEDING ROOT USER POLICY ', error);
-  } finally {
-    await client.release();
-  }
-};
+//     await client.query('COMMIT');
+//   } catch (error) {
+//     console.log('ERROR SEEDING ROOT USER POLICY ', error);
+//   } finally {
+//     await client.release();
+//   }
+// };
 
-const seedRootUserMembeship = async () => {};
+// const seedRootUserMembeship = async () => {};
 
 seedRootOrg();
 // seedRootuser();
