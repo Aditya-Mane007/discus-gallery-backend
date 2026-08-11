@@ -1,4 +1,4 @@
-const express = require("express");
+const express = require('express');
 
 const {
   registerController,
@@ -12,29 +12,29 @@ const {
   otpStatusController,
   generateOtp,
   verifyOtp,
-} = require("./controller.js");
+} = require('./controller.js');
 
-const adminAuthMiddlware = require("../../../middleware/adminAuthMiddleware.js");
+const adminAuthMiddlware = require('../../../middleware/adminAuthMiddleware.js');
 
 const router = express.Router();
 
-router.get("/health", (req, res) => {
+router.get('/health', (req, res) => {
   res.status(200).json({
-    message: "This is Admin Auth Route",
+    message: 'This is Admin Auth Route',
   });
 });
 
 // AUTH
 // router.post("/register", registerController);
-router.post("/login", loginController);
-router.get("/logout", logoutController);
-router.get("/me", adminAuthMiddlware, authoriseController);
-router.get("/refresh-token", getRefreshToken);
+router.post('/login', loginController);
+router.get('/logout', logoutController);
+router.get('/me', adminAuthMiddlware, authoriseController);
+router.get('/refresh-token', getRefreshToken);
 // router.get("/me", adminAuthMiddlware , getuserInfo)
 
 // OTP
-router.get("/generateOTP", adminAuthMiddlware, generateOtpController);
-router.post("/verifyOTP", adminAuthMiddlware, otpVerificationController);
-router.get("/getOtpStatus", adminAuthMiddlware, getOtpStatusController);
+router.get('/generateOTP', adminAuthMiddlware, generateOtpController);
+router.post('/verifyOTP', adminAuthMiddlware, otpVerificationController);
+router.get('/getOtpStatus', adminAuthMiddlware, getOtpStatusController);
 
 module.exports = router;

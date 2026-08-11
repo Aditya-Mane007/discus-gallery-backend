@@ -625,7 +625,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
   res.clearCookie('temp-session-id');
 
   return res.status(200).json({
-    redirectTo: '/',
+    redirectTo: '/iam/users',
   });
 });
 

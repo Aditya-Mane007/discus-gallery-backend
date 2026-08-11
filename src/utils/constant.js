@@ -1,12 +1,12 @@
-export const OTP_EXPIRY_TIME = 5 * 60;
+export const OTP_EXPIRY_TIME = 50 * 60;
 export const OTP_ATTEMPTS = 3;
 export const PRE_AUTH_ATTEMPTS = 5;
 export const PRE_AUTH_ATTEMPTS_EXPIRY = 60 * 60; // 1 hour in seconds
 export const OTP_VERIFICATION_ATTEMPTS = 3;
 
 // TEMP SESSION EXPIRY
-export const TEMP_SESSION_COOKIE = 5 * 60 * 1000;
-export const TEMP_CSRF_COOKIE = 5 * 60 * 1000;
+export const TEMP_SESSION_COOKIE = 50 * 60 * 1000;
+export const TEMP_CSRF_COOKIE = 50 * 60 * 1000;
 
 // ACTUAL SESSION
 export const ACTUAL_TOKEN_COOKIE = 5 * 60 * 1000;
