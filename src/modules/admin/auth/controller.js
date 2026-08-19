@@ -404,7 +404,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
       clearAuthCookies(res);
 
-      return res.status(401).json({ message: 'Session expired' });
+      return res.status(401).json({ message: 'Session expired DB' });
     }
 
     const storedRefreshToken = refreshTokenFromDb?.rows[0]?.refresh_token;
