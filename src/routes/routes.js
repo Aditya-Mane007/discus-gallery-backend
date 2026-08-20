@@ -8,6 +8,11 @@ router.use('/admin/auth', require('../modules/admin/auth/routes.js'));
 
 router.use(
   '/admin/permission',
+  require('../modules/admin/organization/routes.js'),
+);
+
+router.use(
+  '/admin/permission',
   require('../modules/admin/permission-engine/routes.js'),
 );
 
