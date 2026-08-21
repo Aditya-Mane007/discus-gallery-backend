@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS auth.users (
     password_hash TEXT NOT NULL,
 
     profile_photo_url TEXT,
-    -- Legacy (keep temporarily for migration)
-    jwt_secret TEXT NOT NULL,
+    -- Legacy (keep temporarily for migration): nullable, being phased out
+    jwt_secret TEXT,
 
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
@@ -57,9 +57,11 @@ CREATE TABLE IF NOT EXISTS auth.user_sessions(
     user_agent TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    revoked_at TIMESTAMPTZ DEFAULT NOW(),
+    -- FIX: no longer defaults to NOW() — a new session must not be born "revoked"
+    revoked_at TIMESTAMPTZ,
     revoked_by UUID,
-    expires_at TIMESTAMPTZ DEFAULT NOW(),
+    -- FIX: no default, and required — caller must set the actual TTL
+    expires_at TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT fk_user
         FOREIGN KEY(user_id)
@@ -72,6 +74,9 @@ CREATE TABLE IF NOT EXISTS auth.user_sessions(
         ON DELETE SET NULL
 );
 
+CREATE INDEX idx_user_sessions_user_id ON auth.user_sessions (user_id);
+CREATE INDEX idx_user_sessions_refresh_token ON auth.user_sessions (refresh_token);
+
 
 CREATE SCHEMA IF NOT EXISTS modules;
 CREATE TABLE modules.module (
@@ -80,7 +85,9 @@ CREATE TABLE modules.module (
     portal_id UUID NOT NULL,
 
     name CITEXT NOT NULL,
-    slug CITEXT NOT NULL UNIQUE,
+    -- FIX: removed column-level UNIQUE (was redundant with / conflicting with
+    -- the composite below). Slug is now unique per-portal, not globally.
+    slug CITEXT NOT NULL,
     description TEXT,
 
     icon VARCHAR(100),
@@ -114,13 +121,16 @@ CREATE TABLE modules.module (
         ON DELETE SET NULL
 );
 
+CREATE INDEX idx_module_portal_id ON modules.module (portal_id);
+
 CREATE TABLE modules.resource (
     resource_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     module_id UUID NOT NULL,
 
     name CITEXT NOT NULL,
-    slug CITEXT NOT NULL UNIQUE,
+    -- FIX: removed column-level UNIQUE; slug unique per-module via composite below
+    slug CITEXT NOT NULL,
     description TEXT,
 
     display_order SMALLINT NOT NULL DEFAULT 0,
@@ -153,13 +163,16 @@ CREATE TABLE modules.resource (
         ON DELETE SET NULL
 );
 
+CREATE INDEX idx_resource_module_id ON modules.resource (module_id);
+
 CREATE TABLE modules.resource_permission (
     resource_permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     resource_id UUID NOT NULL,
 
     name CITEXT NOT NULL,
-    slug CITEXT NOT NULL UNIQUE,
+    -- FIX: removed column-level UNIQUE; slug unique per-resource via composite below
+    slug CITEXT NOT NULL,
     action CITEXT NOT NULL,
     description TEXT,
 
@@ -200,6 +213,8 @@ CREATE TABLE modules.resource_permission (
        CHECK (length(trim(slug::text)) > 0)
 );
 
+CREATE INDEX idx_resource_permission_resource_id ON modules.resource_permission (resource_id);
+
 
 CREATE SCHEMA IF NOT EXISTS organization;
 CREATE TABLE IF NOT EXISTS organization.organization (
@@ -208,8 +223,10 @@ CREATE TABLE IF NOT EXISTS organization.organization (
 
     portal_id UUID NOT NULL,
 
-    name CITEXT NOT NULL UNIQUE,
-    slug CITEXT NOT NULL UNIQUE,
+    -- FIX: removed column-level UNIQUE on name/slug; scoped to portal via
+    -- the composite uq_org_slug below instead
+    name CITEXT NOT NULL,
+    slug CITEXT NOT NULL,
     description TEXT,
 
     email CITEXT,
@@ -227,7 +244,7 @@ CREATE TABLE IF NOT EXISTS organization.organization (
     updated_by UUID,
 
     CONSTRAINT uq_org_slug
-        UNIQUE (portal_id,name,slug),
+        UNIQUE (portal_id, name, slug),
 
     CONSTRAINT fk_org_portal
         FOREIGN KEY (portal_id)
@@ -246,7 +263,6 @@ CREATE TABLE IF NOT EXISTS organization.organization (
 );
 
 
-
 CREATE TABLE IF NOT EXISTS organization.organization_membership (
 
     organization_membership_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -263,9 +279,11 @@ CREATE TABLE IF NOT EXISTS organization.organization_membership (
 
     invited_at TIMESTAMPTZ DEFAULT NOW(),
 
-    activated_at TIMESTAMPTZ DEFAULT NOW(),
+    -- FIX: no longer defaults to NOW() — a row should not claim to be
+    -- activated/suspended before that actually happens
+    activated_at TIMESTAMPTZ,
 
-    suspended_at TIMESTAMPTZ DEFAULT NOW(),
+    suspended_at TIMESTAMPTZ,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -307,16 +325,25 @@ CREATE TABLE IF NOT EXISTS organization.organization_membership (
         )
 );
 
+CREATE INDEX idx_org_membership_organization_id ON organization.organization_membership (organization_id);
+CREATE INDEX idx_org_membership_user_id ON organization.organization_membership (user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_single_owner_per_org
+ON organization.organization_membership (organization_id)
+WHERE is_owner = TRUE;
+
 CREATE TABLE IF NOT EXISTS auth.permission_policy(
     policy_document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    membership_id UUID NOT NULL,
+    -- FIX: UNIQUE added — one current policy document per membership,
+    -- matching the data.data.policy_document.permissions read shape
+    membership_id UUID NOT NULL UNIQUE,
     permission_version INTEGER DEFAULT 1,
     policy_document JSONB DEFAULT '{}'::JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     created_by UUID,
-    updated_by UUID,  
+    updated_by UUID,
 
     CONSTRAINT fk_membership_id
         FOREIGN KEY(membership_id)
@@ -333,10 +360,6 @@ CREATE TABLE IF NOT EXISTS auth.permission_policy(
         REFERENCES auth.users(user_id)
         ON DELETE SET NULL
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_single_owner_per_org
-ON organization.organization_membership (organization_id)
-WHERE is_owner = TRUE;
 
 CREATE TABLE IF NOT EXISTS organization.organization_invitation (
 
@@ -368,6 +391,9 @@ CREATE TABLE IF NOT EXISTS organization.organization_invitation (
         REFERENCES auth.users(user_id)
         ON DELETE RESTRICT
 );
+
+CREATE INDEX idx_org_invitation_organization_id ON organization.organization_invitation (organization_id);
+CREATE INDEX idx_org_invitation_token_hash ON organization.organization_invitation (token_hash);
 
 -- {
 --   "version": 3,

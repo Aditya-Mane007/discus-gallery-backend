@@ -119,7 +119,23 @@ const getMeById = async (id) => {
   try {
     const query = {
       name: 'get-me-by-id',
-      text: `SELECT user_id, name, email, profile_photo_url FROM ${TABLE_SCHEMA.ADMIN_AUTH} WHERE user_id=$1`,
+      text: `SELECT 
+                u.user_id, 
+                u.name, 
+                u.email, 
+                u.profile_photo_url, 
+                u.is_active,
+                m.organization_membership_id, 
+                m.user_id,
+                m.organization_id, 
+                m.is_owner, 
+                m.status
+
+              FROM users u
+              LEFT JOIN organization.organization_membership m
+              ON u.user_id = m.user_id
+              WHERE u.user_id=$1
+      `,
       values: [id],
     };
     const result = await pool.query(query);

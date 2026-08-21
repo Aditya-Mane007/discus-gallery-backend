@@ -488,15 +488,27 @@ const seedModuleResourceData = async () => {
 
     const adminPortalId = adminPortalRes?.rows[0]?.portal_id;
 
-    for (moduelesData of module_resource_seed_data) {
-      const module = moduelesData?.module;
+    // FIX: fail fast with a clear message instead of letting portal_id
+    // go through as null and surface as an opaque FK-violation error.
+    if (!adminPortalId) {
+      throw new Error(
+        "Admin portal not found (slug='admin'). Run the portal seed before this script.",
+      );
+    }
 
-      const insertModuelData = {
+    // FIX: added missing `const` — was an implicit global before.
+    for (const moduleData of module_resource_seed_data) {
+      const module = moduleData?.module;
+
+      const insertModuleData = {
         name: 'insert-module-data',
         text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_MODULE} 
                 (portal_id,name,slug,description,icon,display_order,is_system,is_active) 
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-                ON CONFLICT (slug)
+                -- FIX: conflict target now matches the composite unique
+                -- constraint (portal_id, slug) — a bare (slug) target no
+                -- longer exists on this table.
+                ON CONFLICT (portal_id, slug)
                 DO UPDATE SET
                    name=EXCLUDED.name,
                    description=EXCLUDED.description
@@ -515,19 +527,20 @@ const seedModuleResourceData = async () => {
         ],
       };
 
-      const moduleDataRes = await client.query(insertModuelData);
+      const moduleDataRes = await client.query(insertModuleData);
 
-      const resources = moduelesData?.resources;
+      const resources = moduleData?.resources;
 
       const moduleId = moduleDataRes?.rows[0]?.module_id;
 
       for (const resource of resources) {
-        const insertResourcelData = {
+        const insertResourceData = {
           name: 'insert-resource-data',
           text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_RESOURCE} 
                 (module_id,name,slug,description,display_order,is_system,is_active) 
                 VALUES($1,$2,$3,$4,$5,$6,$7)  
-                ON CONFLICT (slug)
+                -- FIX: conflict target matches (module_id, slug)
+                ON CONFLICT (module_id, slug)
                 DO UPDATE SET
                    name=EXCLUDED.name,
                    description=EXCLUDED.description
@@ -545,7 +558,7 @@ const seedModuleResourceData = async () => {
           ],
         };
 
-        const resourceDataRes = await client.query(insertResourcelData);
+        const resourceDataRes = await client.query(insertResourceData);
 
         const resourceId = resourceDataRes?.rows[0]?.resource_id;
 
@@ -555,11 +568,12 @@ const seedModuleResourceData = async () => {
           const { name, slug, action, description, is_system, is_active } =
             permission;
           const insertResourcePermission = {
-            name: 'insert-resoruce-permission-data',
+            name: 'insert-resource-permission-data',
             text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
                     (resource_id,name,slug,action,description,is_system,is_active)
                     VALUES($1,$2,$3,$4,$5,$6,$7)
-                    ON CONFLICT (slug)
+                    -- FIX: conflict target matches (resource_id, slug)
+                    ON CONFLICT (resource_id, slug)
                     DO UPDATE SET
                        name=EXCLUDED.name,
                        description=EXCLUDED.description;
@@ -581,12 +595,23 @@ const seedModuleResourceData = async () => {
     }
 
     await client.query('COMMIT');
+    console.log('Module/resource/permission data seeded successfully.');
   } catch (error) {
-    console.log('ERROR SEEDING MODULES DATA : ', error);
+    // FIX: rollback before logging isn't required, but rethrow so the
+    // caller / process knows this failed.
     await client.query('ROLLBACK');
+    console.error('ERROR SEEDING MODULES DATA : ', error);
+    throw error;
   } finally {
-    await client.release();
+    client.release();
   }
 };
 
-seedModuleResourceData();
+// FIX: surface failure as a non-zero exit code, and close the pool
+// (only appropriate if this pool is exclusive to this seed script).
+seedModuleResourceData()
+  .then(() => pool.end())
+  .catch(async () => {
+    await pool.end();
+    process.exitCode = 1;
+  });
