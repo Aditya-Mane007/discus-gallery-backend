@@ -68,6 +68,7 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.log('Middleware Error : ', error);
     if (error.name == 'TokenExpiredError') {
       return res.status(401).json({
         message: 'Access Token Expired',

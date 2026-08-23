@@ -20,7 +20,7 @@ const getPermission = asyncHandler(async (req, res) => {
   const permission = await getPermissionsQuery(membershipId);
 
   if (!permission) {
-    return res.status(404).json({
+    return res.status(200).json({
       message: 'No permissions found for the user',
     });
   }

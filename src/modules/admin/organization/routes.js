@@ -1,6 +1,6 @@
 const express = require('express');
-const { getUserOrganization } = require('./controller');
-const adminAuthMiddlware = require('../../../middleware/adminAuthMiddleware');
+const { getUserOrganization, changeOrganization } = require('./controller.js');
+const adminAuthMiddlware = require('../../../middleware/adminAuthMiddleware.js');
 
 const router = express.Router();
 
@@ -11,5 +11,6 @@ router.get('/getInfo', (req, res) => {
 });
 
 router.get('/getUserOrganizations', adminAuthMiddlware, getUserOrganization);
+router.patch('/changeUserOrganization', adminAuthMiddlware, changeOrganization);
 
 module.exports = router;

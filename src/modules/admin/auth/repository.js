@@ -129,11 +129,18 @@ const getMeById = async (id) => {
                 m.user_id,
                 m.organization_id, 
                 m.is_owner, 
-                m.status
+                m.status,
 
-              FROM users u
-              LEFT JOIN organization.organization_membership m
+                o.organization_id,
+                o.name,
+                o.description,
+                o.logo_url
+                
+              FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
+              LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
               ON u.user_id = m.user_id
+              LEFT JOIN ${TABLE_SCHEMA?.ORG} o
+              ON m.organization_id = o.organization_id
               WHERE u.user_id=$1
       `,
       values: [id],

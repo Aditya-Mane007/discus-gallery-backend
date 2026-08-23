@@ -79,6 +79,8 @@ const setRefreshCookies = (res, token, refreshToken, csrfToken) => {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    maxAge: ACTUAL_SESSION_EXPIRTY_TIME,
+    expires: new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME),
   });
 
   res.cookie('refresh-token', refreshToken, {
@@ -86,12 +88,16 @@ const setRefreshCookies = (res, token, refreshToken, csrfToken) => {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/api/admin/auth/refresh-token',
+    maxAge: ACTUAL_SESSION_EXPIRTY_TIME,
+    expires: new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME),
   });
 
   res.cookie('XSRF-TOKEN', csrfToken, {
     httpOnly: false,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    maxAge: ACTUAL_SESSION_EXPIRTY_TIME,
+    expires: new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME),
   });
 };
 
@@ -318,16 +324,26 @@ const authoriseController = async (req, res) => {
     });
   }
 
-  const useres = await getMeById(req?.user);
+  const user = await getMeById(req?.user);
 
-  const userData = useres?.rows[0];
+  const userData = user?.rows[0];
 
-  console.log('USER DATA : ', userData);
+  console.log('USER DATA : ', user);
+
+  const orgData = (user?.rows || []).map((data) => ({
+    organization_membership_id: data?.organization_membership_id,
+    organization_id: data?.organization_id,
+    logo: data?.logo_url,
+    name: data?.name,
+    is_owner: data?.is_owner,
+  }));
+
   const userInfo = {
     user_id: userData?.user_id,
     name: userData?.name,
     email: userData?.email,
     profile_photo_url: userData?.profile_photo_url,
+    orgData: orgData || [],
   };
   return res.status(200).json({
     data: { ...userInfo },
@@ -345,6 +361,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   console.log('DECODED TOKEN FOR REFRESH : ', decodedToken);
 
   const sessionId = decodedToken?.payload?.session_id;
+  const membershipId = decodedToken?.payload?.membeship_id;
 
   console.log('REFRESH TOKEN : ', refreshToken);
   console.log('SESSION ID : ', sessionId);
@@ -433,7 +450,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
         email: userInfo?.email,
         profile_photo_url: userInfo?.profile_photo_url,
         session_id: sessionId,
-        membeship_id: userInfo?.organization_membership_id,
+        membeship_id: membershipId,
       },
       userInfo.jwt_secret,
     );
@@ -607,12 +624,16 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    maxAge: ACTUAL_SESSION_EXPIRTY_TIME,
+    expires: new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME),
   });
 
   res.cookie('XSRF-TOKEN', csrfToken, {
     httpOnly: false,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    maxAge: ACTUAL_SESSION_EXPIRTY_TIME,
+    expires: new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME),
   });
 
   res.cookie('refresh-token', refreshToken, {
@@ -620,6 +641,8 @@ const otpVerificationController = asyncHandler(async (req, res) => {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/api/admin/auth/refresh-token',
+    maxAge: ACTUAL_SESSION_EXPIRTY_TIME,
+    expires: new Date(Date.now() + ACTUAL_SESSION_EXPIRTY_TIME),
   });
 
   res.clearCookie('temp-session-id');

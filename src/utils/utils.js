@@ -33,7 +33,7 @@ const compareToken = (receivedToken, generatedToken) => {
 // Generate JWT Token
 const generateToken = (userInfo, jwt_Secret) => {
   return jwt.sign(userInfo, jwt_Secret, {
-    expiresIn: '2m',
+    expiresIn: '15m',
   });
 };
 
