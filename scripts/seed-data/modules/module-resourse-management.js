@@ -469,6 +469,25 @@ const module_resource_seed_data = [
           },
         ],
       },
+      {
+        name: 'Support Pages',
+        slug: 'support-pages',
+        description: 'Support Pages',
+        display_order: 3,
+        is_system: true,
+        is_active: true,
+
+        permissions: [
+          {
+            name: 'no-access-page',
+            slug: 'public-page:no-access',
+            action: 'read',
+            description: 'No access page',
+            is_system: true,
+            is_active: true,
+          },
+        ],
+      },
     ],
   },
 ];

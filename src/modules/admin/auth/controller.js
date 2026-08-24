@@ -344,6 +344,7 @@ const authoriseController = async (req, res) => {
     email: userData?.email,
     profile_photo_url: userData?.profile_photo_url,
     orgData: orgData || [],
+    currentMembershipId: req.membershipId,
   };
   return res.status(200).json({
     data: { ...userInfo },
