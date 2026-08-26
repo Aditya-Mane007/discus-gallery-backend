@@ -46,11 +46,20 @@ export const HASHED_SALT = 10;
 export const SESSION_LIMIT = 3;
 
 export const clearAuthCookies = (res) => {
-  res.clearCookie('token', {});
-  res.clearCookie('temp-session-id', {});
-  res.clearCookie('refresh-token');
-  res.clearCookie('session-id');
-  res.clearCookie('XSRF-TOKEN');
+  // Standard configuration used for modern, secure auth cookies
+  const cookieOptions = {
+    path: '/',
+    // If you used a specific domain (like '.example.com'), add it here:
+    // domain: process.env.COOKIE_DOMAIN,
+    secure: true,
+    sameSite: 'lax', // or 'none' / 'strict' depending on your setup
+  };
+
+  res.clearCookie('token', cookieOptions);
+  res.clearCookie('temp-session-id', cookieOptions);
+  res.clearCookie('refresh-token', cookieOptions);
+  res.clearCookie('session-id', cookieOptions);
+  res.clearCookie('XSRF-TOKEN', cookieOptions);
 };
 
 export const OTP_TYPE = {

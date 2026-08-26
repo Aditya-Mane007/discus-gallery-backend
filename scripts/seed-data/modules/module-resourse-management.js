@@ -488,6 +488,25 @@ const module_resource_seed_data = [
           },
         ],
       },
+      {
+        name: 'Dashboard & Profile pages',
+        slug: 'dashboard-profile-pages',
+        description: 'Dashboard & Profile pages',
+        display_order: 3,
+        is_system: true,
+        is_active: true,
+
+        permissions: [
+          {
+            name: 'profile-page',
+            slug: 'profile-page:home',
+            action: 'read',
+            description: 'Home page',
+            is_system: true,
+            is_active: true,
+          },
+        ],
+      },
     ],
   },
 ];
