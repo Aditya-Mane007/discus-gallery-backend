@@ -50,7 +50,7 @@ const REFRESH_WAIT_INTERVAL_MS = 150;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const setRefreshCookies = (res, sessionId, token, refreshToken, csrfToken) => {
+const setRefreshCookies = (res, token, refreshToken, csrfToken) => {
   res.cookie('token', token, {
     maxAge: 3 * 24 * 60 * 60 * 1000,
     expires: new Date(Date.now() + 3 * 24 * 3600 * 1000),
