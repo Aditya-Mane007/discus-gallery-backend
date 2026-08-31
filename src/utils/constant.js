@@ -9,7 +9,7 @@ export const TEMP_SESSION_COOKIE = 2 * 60 * 1000;
 export const TEMP_CSRF_COOKIE = 2 * 60 * 1000;
 
 // ACTUAL SESSION
-export const ACTUAL_TOKEN_COOKIE = 5 * 60 * 1000;
+export const ACTUAL_TOKEN_COOKIE = 2 * 60 * 1000;
 export const ACTUAL_CSRF_COOKIE = 3 * 24 * 60 * 60 * 1000;
 export const ACTUAL_REFRESH_TOKEN_COOKIE = 3 * 24 * 60 * 60 * 1000;
 export const ACTUAL_SESSION_EXPIRTY_TIME = 3 * 24 * 60 * 60 * 1000;
@@ -57,7 +57,13 @@ export const clearAuthCookies = (res) => {
 
   res.clearCookie('token', cookieOptions);
   res.clearCookie('temp-session-id', cookieOptions);
-  res.clearCookie('refresh-token', cookieOptions);
+  res.clearCookie('refresh-token', {
+    path: '/api/admin/auth/refresh-token',
+    // If you used a specific domain (like '.example.com'), add it here:
+    // domain: process.env.COOKIE_DOMAIN,
+    secure: true,
+    sameSite: 'lax', // or 'none' / 'strict' depending on your setup
+  });
   res.clearCookie('session-id', cookieOptions);
   res.clearCookie('XSRF-TOKEN', cookieOptions);
 };

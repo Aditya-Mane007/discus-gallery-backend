@@ -370,7 +370,9 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
   if (!refreshToken || !sessionId) {
     clearAuthCookies(res);
-    return res.status(401).json({ message: 'Session expired' });
+    return res
+      .status(401)
+      .json({ message: 'Session expired', code: 'SESSION_EXPIRED' });
   }
 
   const lockKey = `refresh_lock:${sessionId}`;

@@ -14,8 +14,8 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
     : req?.cookies?.['token'];
 
   if (!csrf) {
+    // res.clearCookie('temp-session-id');
     clearAuthCookies(res);
-    res.clearCookie('temp-session-id');
     return res.status(401).json({
       message: 'Invalid request: csrf token required.',
       redirectTo: '/login',
@@ -30,7 +30,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
 
   if (!csrfTokenStatus) {
     clearAuthCookies(res);
-    res.clearCookie('temp-session-id');
     return res.status(401).json({
       message: 'Request verification failed.',
       redirectTo: '/login',

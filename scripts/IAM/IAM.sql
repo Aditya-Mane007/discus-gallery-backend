@@ -395,6 +395,221 @@ CREATE TABLE IF NOT EXISTS organization.organization_invitation (
 CREATE INDEX idx_org_invitation_organization_id ON organization.organization_invitation (organization_id);
 CREATE INDEX idx_org_invitation_token_hash ON organization.organization_invitation (token_hash);
 
+
+CREATE TABLE IF NOT EXISTS organization.role (
+    role_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    organization_id UUID,
+
+    name CITEXT NOT NULL,
+    slug CITEXT NOT NULL,
+    description TEXT,
+
+    is_system BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,
+
+    CONSTRAINT fk_role_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organization.organization(organization_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_role_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_role_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_role_scope
+        CHECK (
+            (is_system = TRUE AND organization_id IS NULL)
+            OR
+            (is_system = FALSE AND organization_id IS NOT NULL)
+        )
+);
+
+CREATE UNIQUE INDEX uq_role_system_slug
+    ON organization.role(slug)
+    WHERE is_system = TRUE;
+
+CREATE UNIQUE INDEX uq_role_organization_slug
+    ON organization.role(organization_id, slug)
+    WHERE is_system = FALSE;
+
+CREATE TABLE IF NOT EXISTS organization.role_group (
+    role_group_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    organization_id UUID,
+
+    name CITEXT NOT NULL,
+    slug CITEXT NOT NULL,
+    description TEXT,
+
+    is_system BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,
+
+    CONSTRAINT fk_role_group_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organization.organization(organization_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_role_group_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_role_group_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_role_group_scope
+        CHECK (
+            (is_system = TRUE AND organization_id IS NULL)
+            OR
+            (is_system = FALSE AND organization_id IS NOT NULL)
+        )
+);
+
+CREATE UNIQUE INDEX uq_role_group_system_slug
+    ON organization.role_group(slug)
+    WHERE is_system = TRUE;
+
+CREATE UNIQUE INDEX uq_role_group_organization_slug
+    ON organization.role_group(organization_id, slug)
+    WHERE is_system = FALSE;
+
+
+CREATE TABLE IF NOT EXISTS organization.role_group_permission (
+    role_group_permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    role_group_id UUID NOT NULL,
+    resource_permission_id UUID NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID,
+
+    CONSTRAINT uq_role_group_permission
+        UNIQUE (role_group_id, resource_permission_id),
+
+    CONSTRAINT fk_role_group_permission_group
+        FOREIGN KEY (role_group_id)
+        REFERENCES organization.role_group(role_group_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_role_group_permission_permission
+        FOREIGN KEY (resource_permission_id)
+        REFERENCES modules.resource_permission(resource_permission_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_role_group_permission_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS organization.user_group (
+    user_group_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    organization_id UUID,
+
+    name CITEXT NOT NULL,
+    slug CITEXT NOT NULL,
+    description TEXT,
+
+    is_system BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_by UUID,
+    updated_by UUID,
+
+    CONSTRAINT fk_user_group_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organization.organization(organization_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_user_group_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_user_group_updated_by
+        FOREIGN KEY (updated_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_user_group_scope
+        CHECK (
+            (is_system = TRUE AND organization_id IS NULL)
+            OR
+            (is_system = FALSE AND organization_id IS NOT NULL)
+        )
+);
+
+CREATE UNIQUE INDEX uq_user_group_system_slug
+    ON organization.user_group(slug)
+    WHERE is_system = TRUE;
+
+CREATE UNIQUE INDEX uq_user_group_organization_slug
+    ON organization.user_group(organization_id, slug)
+    WHERE is_system = FALSE;
+
+
+    CREATE TABLE IF NOT EXISTS organization.user_group_permission (
+    user_group_permission_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_group_id UUID NOT NULL,
+    resource_permission_id UUID NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID,
+
+    CONSTRAINT uq_user_group_permission
+        UNIQUE (user_group_id, resource_permission_id),
+
+    CONSTRAINT fk_user_group_permission_group
+        FOREIGN KEY (user_group_id)
+        REFERENCES organization.user_group(user_group_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_user_group_permission_permission
+        FOREIGN KEY (resource_permission_id)
+        REFERENCES modules.resource_permission(resource_permission_id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_user_group_permission_created_by
+        FOREIGN KEY (created_by)
+        REFERENCES auth.users(user_id)
+        ON DELETE SET NULL
+);
+
+FOREIGN KEY (
+    organization_membership_id,
+    organization_id
+)
+REFERENCES organization.organization_membership(
+    organization_membership_id,
+    organization_id
+)
+
 -- {
 --   "version": 3,
 --   "permissions": {
@@ -411,3 +626,5 @@ CREATE INDEX idx_org_invitation_token_hash ON organization.organization_invitati
 --     "seller:delete": false
 --   }
 -- }
+
+
