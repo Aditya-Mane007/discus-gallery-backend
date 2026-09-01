@@ -647,9 +647,696 @@ const seedModuleResourceData = async () => {
 
 // FIX: surface failure as a non-zero exit code, and close the pool
 // (only appropriate if this pool is exclusive to this seed script).
-seedModuleResourceData()
-  .then(() => pool.end())
-  .catch(async () => {
-    await pool.end();
+// seedModuleResourceData()
+//   .catch(() => {
+//     console.error('Seed failed:', error);
+//     process.exitCode = 1;
+//   })
+//   .finally(() => pool.end());
+
+const iamSeedData = {
+  /**
+
+============================================================
+SYSTEM ROLES
+============================================================
+*/
+
+  roles: [
+    {
+      name: 'System Administrator',
+      slug: 'system-administrator',
+      description: 'System administrator with complete access.',
+      is_system: true,
+      is_active: true,
+
+      /**
+       * Special flag.
+       *
+       * This role receives every permission available
+       * in the resource_permission table.
+       */
+      all_permissions: true,
+    },
+
+    {
+      name: 'Viewer',
+      slug: 'viewer',
+      description: 'Read-only access.',
+      is_system: true,
+      is_active: true,
+
+      permissions: [
+        'user:read',
+        'membership:read',
+        'session:read',
+
+        'organization:read',
+        'invitation:read',
+
+        'role:read',
+        'role-group:read',
+        'user-group:read',
+
+        'policy:read',
+      ],
+    },
+  ],
+
+  /**
+
+============================================================
+SYSTEM ROLE GROUPS
+============================================================
+*/
+
+  roleGroups: [
+    {
+      name: 'IAM Management',
+      slug: 'iam-management',
+      description: 'Permissions required to manage IAM resources.',
+      is_system: true,
+      is_active: true,
+
+      permissions: [
+        'user:create',
+        'user:read',
+        'user:update',
+        'user:delete',
+        'user:activate',
+        'user:deactivate',
+
+        'membership:create',
+        'membership:read',
+        'membership:update',
+        'membership:delete',
+
+        'role:create',
+        'role:read',
+        'role:update',
+        'role:delete',
+        'role:assign',
+
+        'role-group:create',
+        'role-group:read',
+        'role-group:update',
+        'role-group:delete',
+
+        'user-group:create',
+        'user-group:read',
+        'user-group:update',
+        'user-group:delete',
+
+        'invitation:create',
+        'invitation:read',
+        'invitation:resend',
+        'invitation:cancel',
+
+        'session:read',
+        'session:revoke',
+        'session:revoke-all',
+      ],
+    },
+
+    {
+      name: 'Organization Management',
+      slug: 'organization-management',
+      description: 'Permissions required to manage organizations.',
+      is_system: true,
+      is_active: true,
+
+      permissions: [
+        'organization:create',
+        'organization:read',
+        'organization:update',
+        'organization:delete',
+        'organization:activate',
+        'organization:suspend',
+      ],
+    },
+
+    {
+      name: 'Read Only Access',
+      slug: 'read-only-access',
+      description: 'Read-only permissions across the portal.',
+      is_system: true,
+      is_active: true,
+
+      /**
+       * We will dynamically fetch all permissions
+       * where action = read.
+       */
+      all_read_permissions: true,
+    },
+  ],
+
+  /**
+
+============================================================
+SYSTEM USER GROUPS
+============================================================
+*/
+
+  userGroups: [
+    {
+      name: 'Support Team',
+      slug: 'support-team',
+      description: 'System-defined support team permissions.',
+      is_system: true,
+      is_active: true,
+
+      permissions: [
+        'user:read',
+        'membership:read',
+        'session:read',
+        'invitation:read',
+      ],
+    },
+
+    {
+      name: 'Auditors',
+      slug: 'auditors',
+      description: 'System-defined audit and read-only access.',
+      is_system: true,
+      is_active: true,
+
+      permissions: [
+        'user:read',
+        'membership:read',
+        'session:read',
+
+        'organization:read',
+
+        'role:read',
+        'role-group:read',
+        'user-group:read',
+
+        'policy:read',
+      ],
+    },
+  ],
+};
+
+const getPermissionIdsBySlugs = async (client, permissionSlugs) => {
+  if (!permissionSlugs?.length) {
+    return [];
+  }
+
+  const query = {
+    // name: `get-permission-ids-${permissionSlugs.join('-')}`,
+    text: `SELECT
+      resource_permission_id,
+      slug
+    FROM ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
+    WHERE slug = ANY($1::text[])
+  `,
+    values: [permissionSlugs],
+  };
+
+  const result = await client.query(query);
+
+  const foundPermissions = result.rows;
+
+  /**
+   * Validate that every requested permission exists.
+   */
+  const foundSlugs = new Set(
+    foundPermissions.map((permission) => permission.slug),
+  );
+
+  const missingPermissions = permissionSlugs.filter(
+    (slug) => !foundSlugs.has(slug),
+  );
+
+  if (missingPermissions.length > 0) {
+    throw new Error(`Permissions not found: ${missingPermissions.join(', ')}`);
+  }
+
+  return foundPermissions;
+};
+
+/**
+
+============================================================
+HELPER: GET ALL PERMISSIONS
+============================================================
+*/
+
+const getAllPermissions = async (client) => {
+  const query = {
+    name: 'get-all-resource-permissions',
+
+    text: `
+  SELECT
+    resource_permission_id,
+    slug
+  FROM ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
+`,
+  };
+
+  const result = await client.query(query);
+
+  return result.rows;
+};
+
+/**
+
+============================================================
+HELPER: GET ALL READ PERMISSIONS
+============================================================
+*/
+
+const getAllReadPermissions = async (client) => {
+  const query = {
+    name: 'get-all-read-resource-permissions',
+
+    text: `
+  SELECT
+    resource_permission_id,
+    slug
+  FROM ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
+  WHERE action = 'read'
+`,
+  };
+
+  const result = await client.query(query);
+
+  return result.rows;
+};
+
+/**
+
+============================================================
+SEED SYSTEM ROLES
+============================================================
+*/
+
+const seedRoles = async (client) => {
+  for (const role of iamSeedData.roles) {
+    /**
+     * Insert / update role.
+     */
+
+    const insertRoleQuery = {
+      name: `insert-role-${role.slug}`,
+
+      text: `
+    INSERT INTO ${TABLE_SCHEMA?.ORGANIZATION_ROLE}
+    (
+      organization_id,
+      name,
+      slug,
+      description,
+      is_system,
+      is_active
+    )
+    VALUES (
+      NULL,
+      $1,
+      $2,
+      $3,
+      $4,
+      $5
+    )
+
+    ON CONFLICT (slug)
+    WHERE is_system = TRUE
+
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      is_active = EXCLUDED.is_active,
+      updated_at = NOW()
+
+    RETURNING role_id;
+  `,
+
+      values: [
+        role.name,
+        role.slug,
+        role.description,
+        role.is_system,
+        role.is_active,
+      ],
+    };
+
+    const roleResult = await client.query(insertRoleQuery);
+
+    const roleId = roleResult.rows[0]?.role_id;
+
+    if (!roleId) {
+      throw new Error(`Failed to create role: ${role.slug}`);
+    }
+
+    /**
+     * Resolve permissions.
+     */
+
+    let permissions = [];
+
+    if (role.all_permissions) {
+      permissions = await getAllPermissions(client);
+    } else {
+      permissions = await getPermissionIdsBySlugs(
+        client,
+        role.permissions || [],
+      );
+    }
+
+    /**
+     * Insert role permissions.
+     */
+
+    for (const permission of permissions) {
+      const insertPermissionQuery = {
+        // name: `insert-role-permission-${role.slug}-${permission.slug}`,
+
+        text: `
+      INSERT INTO ${TABLE_SCHEMA?.ORGANIZATION_ROLE_PERMISSION}
+      (
+        role_id,
+        resource_permission_id
+      )
+      VALUES ($1, $2)
+
+      ON CONFLICT (
+        role_id,
+        resource_permission_id
+      )
+      DO NOTHING;
+    `,
+
+        values: [roleId, permission.resource_permission_id],
+      };
+
+      await client.query(insertPermissionQuery);
+    }
+
+    console.log(`✔ Role seeded: ${role.name}`);
+  }
+};
+
+/**
+
+============================================================
+SEED SYSTEM ROLE GROUPS
+============================================================
+*/
+
+const seedRoleGroups = async (client) => {
+  for (const roleGroup of iamSeedData.roleGroups) {
+    /**
+     * Insert / update role group.
+     */
+
+    const insertRoleGroupQuery = {
+      // name: `insert-role-group-${roleGroup.slug}`,
+
+      text: `
+    INSERT INTO ${TABLE_SCHEMA?.ORGANIZATION_ROLE_GROUP}
+    (
+      organization_id,
+      name,
+      slug,
+      description,
+      is_system,
+      is_active
+    )
+    VALUES (
+      NULL,
+      $1,
+      $2,
+      $3,
+      $4,
+      $5
+    )
+
+    ON CONFLICT (slug)
+    WHERE is_system = TRUE
+
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      is_active = EXCLUDED.is_active,
+      updated_at = NOW()
+
+    RETURNING role_group_id;
+  `,
+
+      values: [
+        roleGroup.name,
+        roleGroup.slug,
+        roleGroup.description,
+        roleGroup.is_system,
+        roleGroup.is_active,
+      ],
+    };
+
+    const roleGroupResult = await client.query(insertRoleGroupQuery);
+
+    const roleGroupId = roleGroupResult.rows[0]?.role_group_id;
+
+    if (!roleGroupId) {
+      throw new Error(`Failed to create role group: ${roleGroup.slug}`);
+    }
+
+    /**
+     * Resolve permissions.
+     */
+
+    let permissions = [];
+
+    if (roleGroup.all_read_permissions) {
+      permissions = await getAllReadPermissions(client);
+    } else {
+      permissions = await getPermissionIdsBySlugs(
+        client,
+        roleGroup.permissions || [],
+      );
+    }
+
+    /**
+     * Insert role group permissions.
+     */
+
+    for (const permission of permissions) {
+      const insertPermissionQuery = {
+        // name: `insert-role-group-permission-${roleGroup.slug}-${permission.slug}`,
+
+        text: `
+      INSERT INTO ${TABLE_SCHEMA?.ORGANIZATION_ROLE_GROUP_PERMISSION}
+      (
+        role_group_id,
+        resource_permission_id
+      )
+      VALUES ($1, $2)
+
+      ON CONFLICT (
+        role_group_id,
+        resource_permission_id
+      )
+      DO NOTHING;
+    `,
+
+        values: [roleGroupId, permission.resource_permission_id],
+      };
+
+      await client.query(insertPermissionQuery);
+    }
+
+    console.log(`✔ Role Group seeded: ${roleGroup.name}`);
+  }
+};
+
+/**
+
+============================================================
+SEED SYSTEM USER GROUPS
+============================================================
+*/
+
+const seedUserGroups = async (client) => {
+  for (const userGroup of iamSeedData.userGroups) {
+    /**
+     * Insert / update user group.
+     */
+
+    const insertUserGroupQuery = {
+      // name: `insert-user-group-${userGroup.slug}`,
+
+      text: `
+    INSERT INTO ${TABLE_SCHEMA?.ORGANIZATION_USER_GROUP}
+    (
+      organization_id,
+      name,
+      slug,
+      description,
+      is_system,
+      is_active
+    )
+    VALUES (
+      NULL,
+      $1,
+      $2,
+      $3,
+      $4,
+      $5
+    )
+
+    ON CONFLICT (slug)
+    WHERE is_system = TRUE
+
+    DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      is_active = EXCLUDED.is_active,
+      updated_at = NOW()
+
+    RETURNING user_group_id;
+  `,
+
+      values: [
+        userGroup.name,
+        userGroup.slug,
+        userGroup.description,
+        userGroup.is_system,
+        userGroup.is_active,
+      ],
+    };
+
+    const userGroupResult = await client.query(insertUserGroupQuery);
+
+    const userGroupId = userGroupResult.rows[0]?.user_group_id;
+
+    if (!userGroupId) {
+      throw new Error(`Failed to create user group: ${userGroup.slug}`);
+    }
+
+    /**
+     * Resolve permissions.
+     */
+
+    const permissions = await getPermissionIdsBySlugs(
+      client,
+      userGroup.permissions || [],
+    );
+
+    /**
+     * Insert user group permissions.
+     */
+
+    for (const permission of permissions) {
+      const insertPermissionQuery = {
+        // name: `insert-user-group-permission-${userGroup.slug}-${permission.slug}`,
+        text: `
+      INSERT INTO ${TABLE_SCHEMA?.ORGANIZATION_USER_GROUP_PERMISSION}
+      (
+        user_group_id,
+        resource_permission_id
+      )
+      VALUES ($1, $2)
+
+      ON CONFLICT (
+        user_group_id,
+        resource_permission_id
+      )
+      DO NOTHING;
+    `,
+
+        values: [userGroupId, permission.resource_permission_id],
+      };
+
+      await client.query(insertPermissionQuery);
+    }
+
+    console.log(`✔ User Group seeded: ${userGroup.name}`);
+  }
+};
+
+/**
+
+============================================================
+MAIN SEED FUNCTION
+============================================================
+*/
+
+const seedIamData = async () => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    console.log('========================================');
+
+    console.log('Seeding Roles...');
+
+    console.log('========================================');
+
+    await seedRoles(client);
+
+    console.log('========================================');
+
+    console.log('Seeding Role Groups...');
+
+    console.log('========================================');
+
+    await seedRoleGroups(client);
+
+    console.log('========================================');
+
+    console.log('Seeding User Groups...');
+
+    console.log('========================================');
+
+    await seedUserGroups(client);
+
+    await client.query('COMMIT');
+
+    console.log('========================================');
+
+    console.log('Role, Role Group and User Group data seeded successfully.');
+
+    console.log('========================================');
+  } catch (error) {
+    await client.query('ROLLBACK');
+
+    console.error('ERROR SEEDING IAM DATA:', error);
+
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
+
+============================================================
+EXECUTE SEED
+============================================================
+*/
+
+// seedIamData()
+//   .catch(async () => {
+//     console.error('Seed failed:', error);
+
+//     process.exitCode = 1;
+//   })
+//   .finally(() => pool.end());
+
+const main = async () => {
+  try {
+    await seedModuleResourceData();
+
+    await seedIamData();
+
+    console.log('All seed data completed successfully');
+  } catch (error) {
+    console.error('Seed failed:', error);
+
     process.exitCode = 1;
-  });
+  } finally {
+    await pool.end();
+  }
+};
+
+main();
