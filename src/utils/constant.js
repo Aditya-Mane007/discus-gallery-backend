@@ -36,7 +36,14 @@ export const TABLE_SCHEMA = {
   // ORGANIZATION
   ORG: 'organization.organization',
   ORG_MEMBERSHIP: 'organization.organization_membership',
+
   ORG_INVITATION: 'organization.organization_invitation',
+
+  ORG_MEMBERSHIP_ROLE: 'organization.membership_role',
+
+  ORG_MEMBERSHIP_ROLE_GROUP: 'organization.membership_role_group',
+
+  ORG_MEMBERSHIP_USER_GROUP: 'organization.membership_user_group',
 
   ORGANIZATION_ROLE: 'organization.role',
 
@@ -49,6 +56,8 @@ export const TABLE_SCHEMA = {
   ORGANIZATION_USER_GROUP: 'organization.user_group',
 
   ORGANIZATION_USER_GROUP_PERMISSION: 'organization.user_group_permission',
+
+  MEMBERSHIP_PERMISSION: 'organization.membership_permission',
 };
 
 export const JWT_SECRET_BYTES = 64;

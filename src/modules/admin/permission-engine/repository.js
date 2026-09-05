@@ -32,47 +32,85 @@ const getUserPermissions = async (membershipId) => {
     const query = {
       name: 'genrate-permission-policy',
       text: `SELECT 
-  membership.organization_id,
-  membership.user_id,
-  membership.organization_membership_id,
-  role.name,
-  role.slug
-FROM organization.organization_membership membership
-LEFT JOIN organization.membership_role member_role
-ON membership.organization_membership_id = member_role.organization_membership_id
-LEFT JOIN organization.role
-ON member_role.role_id = role.role_id;
+              membership.organization_id,
+              membership.user_id,
+              membership.organization_membership_id,
+              resourcePermission.name,
+              resourcePermission.slug
+              resourcePermission.description
+              resourcePermission.action
 
-SELECT 
-  membership.organization_id,
-  membership.user_id,
-  membership.organization_membership_id,
-  role_group.name,
-  role_group.slug
-FROM organization.organization_membership membership
-LEFT JOIN organization.membership_role_group member_role_group
-ON membership.organization_membership_id = member_role_group.organization_membership_id
-LEFT JOIN organization.role_group role_group
-ON member_role_group.role_group_id = role_group.role_group_id
+            FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
+            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP_ROLE} member_role
+            ON membership.organization_membership_id = member_role.organization_membership_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORGANIZATION_ROLE} role
+            ON member_role.role_id = role.role_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORGANIZATION_ROLE_PERMISSION} role_permission
+            ON role.role_id = role_permission.role_id
+            LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
+            ON role_permission.resource_permission_id = resourcePermission.resource_permission_id
+            WHERE membership.user_id = $1
+          
+            UNION
+          
+            SELECT 
+              membership.organization_id,
+              membership.user_id,
+              membership.organization_membership_id,
+              resourcePermission.name,
+              resourcePermission.slug,
+              resourcePermission.description,
+              resourcePermission.action
+            FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
+            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP_ROLE_GROUP} member_role_group
+            ON membership.organization_membership_id = member_role_group.organization_membership_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORGANIZATION_ROLE_GROUP} role_group
+            ON member_role_group.role_group_id = role_group.role_group_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORGANIZATION_ROLE_GROUP_PERMISSION} role_group_permission
+            ON role_group.role_group_id = role_group_permission.role_group_id
+            LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
+            ON role_group_permission.resource_permission_id = resourcePermission.resource_permission_id
+            WHERE membership.user_id = $1
 
-WHERE membership.user_id = '1606abf5-12dc-49fa-af0e-d39f914a5482';
+            UNION
 
+            SELECT 
+              membership.organization_id,
+              membership.user_id,
+              membership.organization_membership_id,
+              resourcePermission.name,
+              resourcePermission.slug,
+              resourcePermission.description,
+              resourcePermission.action
+            FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
+            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP_USER_GROUP} member_user_group
+            ON membership.organization_membership_id = member_user_group.organization_membership_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORGANIZATION_USER_GROUP} user_group
+            ON member_user_group.user_group_id = user_group.user_group_id
+            LEFT JOIN ${TABLE_SCHEMA?.ORGANIZATION_USER_GROUP_PERMISSION} user_group_permission
+            ON user_group.user_group_id = user_group_permission.user_group_id
+            LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
+            ON user_group_permission.resource_permission_id = resourcePermission.resource_permission_id
+            WHERE membership.user_id = $1;
 
-SELECT 
-  membership.organization_id,
-  membership.user_id,
-  membership.organization_membership_id,
-  user_group.name,
-  user_group.slug
-FROM organization.organization_membership membership
-LEFT JOIN organization.membership_user_group member_user_group
-ON membership.organization_membership_id = member_user_group.organization_membership_id
-LEFT JOIN organization.user_group user_group
-ON member_user_group.user_group_id = user_group.user_group_id
+            UNION
 
-WHERE membership.user_id = '1606abf5-12dc-49fa-af0e-d39f914a5482'
-
-      `,
+            SELECT 
+              membership.organization_id,
+              membership.user_id,
+              membership.organization_membership_id,
+              resourcePermission.name,
+              resourcePermission.slug,
+              resourcePermission.description,
+              resourcePermission.action
+            FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
+            LEFT JOIN ${TABLE_SCHEMA?.MEMBERSHIP_PERMISSION} membership_permission
+            ON membership.organization_membership_id = membership_permission.organization_membership_id
+            LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
+            ON membership_permission.resource_permission_id = resourcePermission.resource_permission_id
+            WHERE membership.user_id = $1;
+          `,
+      values: [membershipId],
     };
   } catch (error) {
     console.log('Error Fetching Permission : ', error);
@@ -80,6 +118,8 @@ WHERE membership.user_id = '1606abf5-12dc-49fa-af0e-d39f914a5482'
     await client.release();
   }
 };
+
+// const
 
 module.exports = {
   getPermissionsQuery,
