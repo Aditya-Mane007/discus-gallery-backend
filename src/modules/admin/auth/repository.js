@@ -87,13 +87,18 @@ const getUserById = async (user_id, session_id) => {
             s.session_id,
             s.is_active,
 
-            m.organization_membership_id
+            m.organization_membership_id,
+
+            p.permission_version,
+            p.policy_document_id
 
             FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
             LEFT JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
             ON u.user_id = s.user_id
             LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
             ON u.user_id = m.user_id
+            LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
+            ON m.organization_membership_id = p.membership_id
 
             WHERE u.user_id = $1 AND s.session_id = $2 AND s.is_active = TRUE
     `,
@@ -134,13 +139,17 @@ const getMeById = async (id) => {
                 o.organization_id,
                 o.name,
                 o.description,
-                o.logo_url
+                o.logo_url,
+
+                p.permission_version
                 
               FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
               LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
               ON u.user_id = m.user_id
               LEFT JOIN ${TABLE_SCHEMA?.ORG} o
               ON m.organization_id = o.organization_id
+              LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
+              ON m.organization_membership_id = p.membership_id
               WHERE u.user_id=$1
       `,
       values: [id],

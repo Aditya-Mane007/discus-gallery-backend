@@ -61,6 +61,7 @@ const {
   generateOTPService,
   generate2FAOTPService,
 } = require('../../../services/service.js');
+const { permission } = require('process');
 
 dotenv.config();
 
@@ -344,6 +345,7 @@ const authoriseController = async (req, res) => {
     email: userData?.email,
     profile_photo_url: userData?.profile_photo_url,
     orgData: orgData || [],
+    permission_version: userData?.permission_version,
     currentMembershipId: req.membershipId,
   };
   return res.status(200).json({
@@ -454,6 +456,7 @@ const getRefreshToken = asyncHandler(async (req, res) => {
         profile_photo_url: userInfo?.profile_photo_url,
         session_id: sessionId,
         membeship_id: membershipId,
+        permission_version: userInfo?.permission_version,
       },
       userInfo.jwt_secret,
     );
@@ -617,6 +620,7 @@ const otpVerificationController = asyncHandler(async (req, res) => {
       profile_photo_url: userInfo?.profile_photo_url,
       session_id: userInfo?.session_id,
       membeship_id: userInfo?.organization_membership_id,
+      permission_version: userInfo?.permission_version,
     },
     userInfo?.jwt_secret,
   );

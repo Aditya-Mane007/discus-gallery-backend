@@ -39,6 +39,8 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
   try {
     const decodedToken = jwt.decode(token, { complete: true });
 
+    console.log('DECODED TOKEN : ', decodedToken);
+
     if (!decodedToken?.payload?.user_id) {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -59,6 +61,10 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
     const verificationStatus = jwt.verify(token, user?.rows[0]?.jwt_secret, {
       algorithms: ['HS256'],
     });
+
+    if(decodedToken?.payload?.permission_version !== user?.rows[0]?.permission_version){
+      
+    }
 
     req.user = user?.rows[0]?.user_id;
     req.tempSessionId = user?.rows[0]?.temp_session_id;

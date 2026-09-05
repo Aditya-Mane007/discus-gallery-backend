@@ -24,7 +24,7 @@ const getPermissionsQuery = async (membershipId) => {
   }
 };
 
-const getUserPermissions = async (membershipId) => {
+const generatePermissionPolicy = async (membershipId) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -163,4 +163,5 @@ const getUserPermissions = async (membershipId) => {
 
 module.exports = {
   getPermissionsQuery,
+  generatePermissionPolicy,
 };
