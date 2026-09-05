@@ -29,8 +29,8 @@ const getUserPermissions = async (membershipId) => {
   try {
     await client.query('BEGIN');
 
-    const query = {
-      name: 'genrate-permission-policy',
+    const allowedPermissionQuery = {
+      name: 'allowed-permission-query',
       text: `SELECT 
               membership.organization_id,
               membership.user_id,
@@ -112,14 +112,54 @@ const getUserPermissions = async (membershipId) => {
           `,
       values: [membershipId],
     };
+
+    const deniedPermissionQuery = {
+      name: 'denied-permission-query',
+      text: `SELECT 
+              membership.organization_id,
+              membership.user_id,
+              membership.organization_membership_id,
+              resourcePermission.name,
+              resourcePermission.slug
+              resourcePermission.description
+              resourcePermission.action
+            FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
+            LEFT JOIN ${TABLE_SCHEMA?.ORG_DENIED_MEMBERSHIP} denied_permission
+            ON membership.organization_membership_id = denied_permission.organization_membership_id
+            LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
+            ON denied_permission.resource_permission_id = resourcePermission.resource_permission_id
+            WHERE membership.user_id = $1; 
+      `,
+      values: [membershipId],
+    };
+
+    const allowedPermission = (await pool.query(allowedPermissionQuery)).rows;
+    const deniedPermission = (await pool.query(deniedPermissionQuery)).rows;
+
+    const allowedPermissionObjet = {};
+
+    if (allowedPermission.length > 0) {
+      for (let i = 0; i < allowedPermission.length; i++) {
+        const slug = allowedPermission[i].slug;
+        allowedPermissionObjet[slug] = true;
+      }
+    }
+
+    if (deniedPermission.length > 0) {
+      for (let i = 0; i < deniedPermission.length; i++) {
+        if (deniedPermission[i].slug in allowedPermission) {
+          delete allowedPermissionObjet[deniedPermission[i].slug];
+        }
+      }
+    }
+
+    return allowedPermissionObjet;
   } catch (error) {
     console.log('Error Fetching Permission : ', error);
   } finally {
     await client.release();
   }
 };
-
-// const
 
 module.exports = {
   getPermissionsQuery,

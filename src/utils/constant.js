@@ -37,6 +37,8 @@ export const TABLE_SCHEMA = {
   ORG: 'organization.organization',
   ORG_MEMBERSHIP: 'organization.organization_membership',
 
+  ORG_DENIED_MEMBERSHIP: 'membership_denied_permission',
+
   ORG_INVITATION: 'organization.organization_invitation',
 
   ORG_MEMBERSHIP_ROLE: 'organization.membership_role',
