@@ -7,7 +7,7 @@ const getPermissionsQuery = async (membershipId) => {
     await client.query('BEGIN');
     const query = {
       name: 'get-user-permisions',
-      text: `SELECT permission_version,policy_document_id,policy_document FROM ${TABLE_SCHEMA?.PERMISSION_POLICY} WHERE membership_id = $1`,
+      text: `SELECT permission_version,policy_document_id,policy_document FROM ${TABLE_SCHEMA?.PERMISSION_POLICY} WHERE membership_id = $1 AND is_active = TRUE`,
       values: [membershipId],
     };
 
@@ -36,8 +36,8 @@ const generatePermissionPolicy = async (membershipId) => {
               membership.user_id,
               membership.organization_membership_id,
               resourcePermission.name,
-              resourcePermission.slug
-              resourcePermission.description
+              resourcePermission.slug,
+              resourcePermission.description,
               resourcePermission.action
 
             FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
@@ -91,7 +91,7 @@ const generatePermissionPolicy = async (membershipId) => {
             ON user_group.user_group_id = user_group_permission.user_group_id
             LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
             ON user_group_permission.resource_permission_id = resourcePermission.resource_permission_id
-            WHERE membership.user_id = $1;
+            WHERE membership.user_id = $1
 
             UNION
 
@@ -120,8 +120,8 @@ const generatePermissionPolicy = async (membershipId) => {
               membership.user_id,
               membership.organization_membership_id,
               resourcePermission.name,
-              resourcePermission.slug
-              resourcePermission.description
+              resourcePermission.slug,
+              resourcePermission.description,
               resourcePermission.action
             FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
             LEFT JOIN ${TABLE_SCHEMA?.ORG_DENIED_MEMBERSHIP} denied_permission
@@ -133,8 +133,11 @@ const generatePermissionPolicy = async (membershipId) => {
       values: [membershipId],
     };
 
-    const allowedPermission = (await pool.query(allowedPermissionQuery)).rows;
-    const deniedPermission = (await pool.query(deniedPermissionQuery)).rows;
+    const allowedPermission = await pool.query(allowedPermissionQuery);
+    const deniedPermission = await pool.query(deniedPermissionQuery);
+
+    console.log('allowedPermission : ', allowedPermission);
+    console.log('deniedPermission : ', deniedPermission);
 
     const allowedPermissionObjet = {};
 
@@ -153,6 +156,8 @@ const generatePermissionPolicy = async (membershipId) => {
       }
     }
 
+    console.log('allowedPermissionObjet : ', allowedPermissionObjet);
+
     return allowedPermissionObjet;
   } catch (error) {
     console.log('Error Fetching Permission : ', error);
@@ -161,7 +166,56 @@ const generatePermissionPolicy = async (membershipId) => {
   }
 };
 
+const createPolicy = async (
+  membershipId,
+  permissionVersion,
+  policyDocument,
+  userId,
+) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    await client.query({
+      name: 'deactivate-active-policy-document',
+      text: `
+      UPDATE ${TABLE_SCHEMA?.PERMISSION_POLICY}
+      SET is_active = FALSE
+      WHERE membership_id = $1
+        AND is_active = TRUE;
+    `,
+      values: [membershipId],
+    });
+
+    const result = await client.query({
+      name: 'create-policy-document',
+      text: `
+      INSERT INTO ${TABLE_SCHEMA?.PERMISSION_POLICY}
+      (
+        membership_id,
+        permission_version,
+        policy_document,
+        is_active
+      )
+      VALUES ($1, $2, $3, TRUE);
+    `,
+      values: [membershipId, permissionVersion, policyDocument],
+    });
+
+    // console.log('CREATE POLICY RESULT : ', result);
+    await client.query('COMMIT');
+
+    return result;
+  } catch (error) {
+    console.log('Error Creating Permission Policy : ', error);
+  } finally {
+    await client.release();
+  }
+};
+
 module.exports = {
   getPermissionsQuery,
   generatePermissionPolicy,
+  createPolicy,
 };

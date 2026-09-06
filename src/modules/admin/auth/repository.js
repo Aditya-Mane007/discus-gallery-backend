@@ -56,56 +56,63 @@ const getUserByEmail = async (email) => {
 };
 
 const getUserById = async (user_id, session_id) => {
-  if (!session_id) {
+  try {
+    if (!session_id) {
+      const query = {
+        name: 'get-userInfo-by-id',
+        text: `SELECT 
+                u.user_id, 
+                u.name, 
+                u.email, 
+                u.profile_photo_url, 
+                u.jwt_secret
+                
+                FROM ${TABLE_SCHEMA.ADMIN_AUTH} u 
+                WHERE u.user_id=$1`,
+        values: [user_id],
+      };
+
+      const result = await pool.query(query);
+      return result;
+    }
     const query = {
-      name: 'get-userInfo-by-id',
+      name: 'get-user-by-id',
       text: `SELECT 
               u.user_id, 
               u.name, 
               u.email, 
-              u.profile_photo_url, 
-              u.jwt_secret
-              
-              FROM ${TABLE_SCHEMA.ADMIN_AUTH} u 
-              WHERE u.user_id=$1`,
-      values: [user_id],
+              u.password_hash, 
+              u.profile_photo_url,
+              u.jwt_secret,
+     
+              s.session_id,
+              s.is_active,
+  
+              m.organization_membership_id,
+  
+              p.permission_version,
+              p.policy_document_id,
+              p.policy_expired
+  
+              FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
+              LEFT JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
+              ON u.user_id = s.user_id
+              LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
+              ON u.user_id = m.user_id
+              LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
+              ON m.organization_membership_id = p.membership_id
+  
+              WHERE u.user_id = $1 AND s.session_id = $2 AND s.is_active = TRUE AND p.is_active = TRUE
+      `,
+      values: [user_id, session_id],
     };
-
     const result = await pool.query(query);
+
+    console.log('RESULT : ', result);
     return result;
+  } catch (error) {
+    console.log('ERRR : ', error);
   }
-  const query = {
-    name: 'get-user-by-id',
-    text: `SELECT 
-            u.user_id, 
-            u.name, 
-            u.email, 
-            u.password_hash, 
-            u.profile_photo_url,
-            u.jwt_secret,
-   
-            s.session_id,
-            s.is_active,
-
-            m.organization_membership_id,
-
-            p.permission_version,
-            p.policy_document_id
-
-            FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
-            LEFT JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s
-            ON u.user_id = s.user_id
-            LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
-            ON u.user_id = m.user_id
-            LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
-            ON m.organization_membership_id = p.membership_id
-
-            WHERE u.user_id = $1 AND s.session_id = $2 AND s.is_active = TRUE
-    `,
-    values: [user_id, session_id],
-  };
-  const result = await pool.query(query);
-  return result;
 };
 
 const getUserBYIdInTempSession = async (user_id) => {
@@ -150,7 +157,7 @@ const getMeById = async (id) => {
               ON m.organization_id = o.organization_id
               LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
               ON m.organization_membership_id = p.membership_id
-              WHERE u.user_id=$1
+              WHERE u.user_id=$1 AND p.is_active = TRUE
       `,
       values: [id],
     };
@@ -364,17 +371,22 @@ const checkRefreshToken = async (sessionId) => {
           u.profile_photo_url,
           u.jwt_secret,
 
-          m.organization_membership_id
+          m.organization_membership_id,
+          p.permission_version,
+          p.policy_document_id
 
         FROM ${TABLE_SCHEMA?.ADMIN_AUTH} u
         INNER JOIN ${TABLE_SCHEMA?.ADMIN_SESSION} s 
         ON u.user_id = s.user_id
         LEFT JOIN ${TABLE_SCHEMA?.ORG_MEMBERSHIP} m
         ON u.user_id = m.user_id
+        LEFT JOIN ${TABLE_SCHEMA?.PERMISSION_POLICY} p
+        ON m.organization_membership_id = p.membership_id
         
         WHERE 
           s.session_id = $1
-          AND s.is_active = TRUE 
+          AND s.is_active = TRUE
+          AND p.is_active = TRUE
       `,
       values: [sessionId],
     };

@@ -159,13 +159,16 @@ const seedRootOrg = async () => {
 
     // FIX: idempotent upsert on membership_id (now UNIQUE per the schema
     // fix), so re-running doesn't hit a duplicate-key error.
+
+    // FOLLOWING WHAT WE HAD FOR UNIQUE CONSTRIANT
+    // ON CONFLICT (membership_id)
+    //          DO UPDATE SET policy_document = EXCLUDED.policy_document,
+    //                        updated_at = NOW()
     const insertRootUserPolicyQuery = {
       name: 'insert-root-user-policy',
       text: `INSERT INTO ${TABLE_SCHEMA?.PERMISSION_POLICY} (membership_id, policy_document)
              VALUES ($1, $2::jsonb)
-             ON CONFLICT (membership_id)
-             DO UPDATE SET policy_document = EXCLUDED.policy_document,
-                           updated_at = NOW()
+             
              RETURNING policy_document_id`,
       values: [membershipId, JSON.stringify(policyDocument)],
     };

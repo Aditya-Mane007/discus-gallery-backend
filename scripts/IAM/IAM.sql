@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS auth.permission_policy(
     policy_document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     -- FIX: UNIQUE added — one current policy document per membership,
     -- matching the data.data.policy_document.permissions read shape
-    membership_id UUID NOT NULL UNIQUE,
+    membership_id UUID NOT NULL,
     permission_version INTEGER DEFAULT 1,
     policy_document JSONB DEFAULT '{}'::JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -344,6 +344,8 @@ CREATE TABLE IF NOT EXISTS auth.permission_policy(
 
     created_by UUID,
     updated_by UUID,
+    is_active BOOLEAN DEFAULT TRUE,
+    policy_expired BOOLEAN DEFAULT FALSE,
 
     CONSTRAINT fk_membership_id
         FOREIGN KEY(membership_id)

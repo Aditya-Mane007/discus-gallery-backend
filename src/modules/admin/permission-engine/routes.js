@@ -3,7 +3,10 @@ const express = require('express');
 const router = express.Router();
 
 const adminAuthMiddlware = require('../../../middleware/adminAuthMiddleware.js');
-const { getPermission } = require('./controller.js');
+const {
+  getPermission,
+  generatePermissionPolicyDocument,
+} = require('./controller.js');
 
 router.get('/health', (req, res) => {
   res.status(200).json({
@@ -12,5 +15,7 @@ router.get('/health', (req, res) => {
 });
 
 router.get('/get-permissions', adminAuthMiddlware, getPermission);
+
+router.get('/generate-permission-policy', generatePermissionPolicyDocument);
 
 module.exports = router;

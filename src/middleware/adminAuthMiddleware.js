@@ -62,8 +62,13 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
       algorithms: ['HS256'],
     });
 
-    if(decodedToken?.payload?.permission_version !== user?.rows[0]?.permission_version){
-      
+    console.log('MID USER INFO', user?.rows[0]);
+
+    if (req?.cookies?.['token'] && user?.rows[0]?.policy_expired) {
+      return res.status(409).json({
+        message: 'Permissions have changed',
+        code: 'PERMISSIONS_CHANGED',
+      });
     }
 
     req.user = user?.rows[0]?.user_id;

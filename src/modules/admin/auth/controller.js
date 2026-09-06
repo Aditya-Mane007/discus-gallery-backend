@@ -449,6 +449,8 @@ const getRefreshToken = asyncHandler(async (req, res) => {
 
     const userInfo = refreshTokenFromDb?.rows[0];
 
+    
+
     const token = generateToken(
       {
         user_id: userInfo?.user_id,
