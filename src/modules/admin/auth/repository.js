@@ -108,7 +108,6 @@ const getUserById = async (user_id, session_id) => {
     };
     const result = await pool.query(query);
 
-    console.log('RESULT : ', result);
     return result;
   } catch (error) {
     console.log('ERRR : ', error);
@@ -163,7 +162,6 @@ const getMeById = async (id) => {
     };
     const result = await pool.query(query);
 
-    console.log('RESULT : ', result);
     return result;
   } catch (error) {
     console.log('Error : ', error);
@@ -514,8 +512,6 @@ const cleanupExpiredUserSessions = async () => {
       text: `UPDATE user_sessions SET is_active = FALSE WHERE is_active = TRUE AND expires_at < NOW();
       `,
     };
-
-    console.log(`Expired ${result.rowCount} user session(s).`);
 
     return result;
 

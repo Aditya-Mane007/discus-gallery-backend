@@ -137,8 +137,6 @@ const send = async (recipent, otp) => {
     subject: 'User Identity Verifcation ',
     text: `YOUR OTP : ${otp}`,
   });
-
-  console.log('Message sent:', info.messageId);
 };
 
 module.exports = {

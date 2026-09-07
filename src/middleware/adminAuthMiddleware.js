@@ -39,8 +39,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
   try {
     const decodedToken = jwt.decode(token, { complete: true });
 
-    console.log('DECODED TOKEN : ', decodedToken);
-
     if (!decodedToken?.payload?.user_id) {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -62,8 +60,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
       algorithms: ['HS256'],
     });
 
-    console.log('MID USER INFO', user?.rows[0]);
-
     if (req?.cookies?.['token'] && user?.rows[0]?.policy_expired) {
       return res.status(409).json({
         message: 'Permissions have changed',
@@ -78,7 +74,6 @@ const adminAuthMiddlware = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.log('Middleware Error : ', error);
     if (error.name == 'TokenExpiredError') {
       return res.status(401).json({
         message: 'Access Token Expired',

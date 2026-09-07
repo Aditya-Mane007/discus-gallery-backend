@@ -41,8 +41,6 @@ const changeOrganization = asyncHandler(async (req, res) => {
   // Membeship id , this is membership id of org , which user want to switch to
   const { membership_id } = req.body;
 
-  console.log('REQ BODY : ', req.body, membership_id);
-
   if (!membership_id) {
     return res.status(400).json({
       message: 'Memebship id is required',

@@ -235,11 +235,8 @@ const seedIAM = async () => {
 
     const userId = await fetchRootUser(client);
 
-    // console.log('USER ID : ', userId);
-
     for (const data of iamData) {
       const { name, slug, description } = data?.module;
-      // console.log('MODULE DATA : ', name, slug, description);
 
       const moduleRes = await seedModuleData(
         client,

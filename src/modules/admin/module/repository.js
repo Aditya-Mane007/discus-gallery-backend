@@ -4,8 +4,6 @@ const { TABLE_SCHEMA } = require('../../../utils/constant');
 const fetchRootUser = async (client) => {
   const email = process.env.ROOT_ACCOUNT_EMAIL;
 
-  console.log('FETCHING ROOT USER');
-
   try {
     const query = {
       name: 'fetch-root-user-id',
@@ -14,7 +12,6 @@ const fetchRootUser = async (client) => {
     };
     const result = await client.query(query);
 
-    console.log('FOUNT ROOT USER');
     return result?.rows[0]?.user_id;
   } catch (error) {
     console.log(error);

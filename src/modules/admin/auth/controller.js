@@ -72,10 +72,6 @@ const REFRESH_WAIT_INTERVAL_MS = 150;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const setRefreshCookies = (res, token, refreshToken, csrfToken) => {
-  console.log('SET TOKEN : ', token);
-  console.log('SET REF TOKEN : ', refreshToken);
-  console.log('SET CSRF TOKEN : ', csrfToken);
-
   res.cookie('token', token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -235,7 +231,6 @@ const loginController = asyncHandler(async (req, res) => {
   const preauth_attempts_remaining = PRE_AUTH_ATTEMPTS - 1;
   const otp = await generateOTP();
 
-  console.log(`LOGIN OTP FOR ${user?.email} : `, otp);
   const otp_attempts = OTP_ATTEMPTS - 1;
   const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS;
 
@@ -317,8 +312,6 @@ const logoutController = async (req, res) => {
 
 // Get User
 const authoriseController = async (req, res) => {
-  console.log('REQ USER : ', req.user);
-
   if (!req.user) {
     res.status(401).json({
       message: 'User is not authorised, please login',
@@ -328,8 +321,6 @@ const authoriseController = async (req, res) => {
   const user = await getMeById(req?.user);
 
   const userData = user?.rows[0];
-
-  console.log('USER DATA : ', user);
 
   const orgData = (user?.rows || []).map((data) => ({
     organization_membership_id: data?.organization_membership_id,
@@ -361,14 +352,8 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   const refreshToken = cookies['refresh-token'];
   const decodedToken = jwt.decode(token, { complete: true });
 
-  console.log('DECODED TOKEN FOR REFRESH : ', decodedToken);
-
   const sessionId = decodedToken?.payload?.session_id;
   const membershipId = decodedToken?.payload?.membeship_id;
-
-  console.log('REFRESH TOKEN : ', refreshToken);
-  console.log('SESSION ID : ', sessionId);
-  console.log('SESSION ID : ', sessionId);
 
   if (!refreshToken || !sessionId) {
     clearAuthCookies(res);
@@ -418,8 +403,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
   try {
     const refreshTokenFromDb = await checkRefreshToken(sessionId);
 
-    console.log('REFRESH TOKEN FROM DB : ', refreshTokenFromDb);
-
     if (refreshTokenFromDb?.rowCount < 1) {
       const status = false;
       await updateRefreshToken(null, sessionId, status);
@@ -448,8 +431,6 @@ const getRefreshToken = asyncHandler(async (req, res) => {
     await updateRefreshToken(hasedRefreshToken, sessionId, status);
 
     const userInfo = refreshTokenFromDb?.rows[0];
-
-    
 
     const token = generateToken(
       {

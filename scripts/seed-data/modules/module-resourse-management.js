@@ -485,6 +485,7 @@ const module_resource_seed_data = [
             description: 'No access page',
             is_system: true,
             is_active: true,
+            default_access: true,
           },
         ],
       },
@@ -502,6 +503,7 @@ const module_resource_seed_data = [
             slug: 'profile-page:home',
             action: 'read',
             description: 'Home page',
+            default_access: true,
             is_system: true,
             is_active: true,
           },
@@ -603,13 +605,21 @@ const seedModuleResourceData = async () => {
         const resourcePermissionData = resource?.permissions;
 
         for (const permission of resourcePermissionData) {
-          const { name, slug, action, description, is_system, is_active } =
-            permission;
+          const {
+            name,
+            slug,
+            action,
+            description,
+            is_system,
+            is_active,
+            default_access,
+          } = permission;
+
           const insertResourcePermission = {
             name: 'insert-resource-permission-data',
             text: `INSERT INTO ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION}
-                    (resource_id,name,slug,action,description,is_system,is_active)
-                    VALUES($1,$2,$3,$4,$5,$6,$7)
+                    (resource_id,name,slug,action,description,is_system,is_active,default_access)
+                    VALUES($1,$2,$3,$4,$5,$6,$7,$8)
                     -- FIX: conflict target matches (resource_id, slug)
                     ON CONFLICT (resource_id, slug)
                     DO UPDATE SET
@@ -624,6 +634,7 @@ const seedModuleResourceData = async () => {
               description,
               is_system,
               is_active,
+              default_access ?? false,
             ],
           };
 

@@ -49,7 +49,7 @@ const generatePermissionPolicy = async (membershipId) => {
             ON role.role_id = role_permission.role_id
             LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
             ON role_permission.resource_permission_id = resourcePermission.resource_permission_id
-            WHERE membership.user_id = $1
+            WHERE membership.organization_membership_id  = $1
           
             UNION
           
@@ -70,7 +70,7 @@ const generatePermissionPolicy = async (membershipId) => {
             ON role_group.role_group_id = role_group_permission.role_group_id
             LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
             ON role_group_permission.resource_permission_id = resourcePermission.resource_permission_id
-            WHERE membership.user_id = $1
+            WHERE membership.organization_membership_id  = $1
 
             UNION
 
@@ -91,7 +91,7 @@ const generatePermissionPolicy = async (membershipId) => {
             ON user_group.user_group_id = user_group_permission.user_group_id
             LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
             ON user_group_permission.resource_permission_id = resourcePermission.resource_permission_id
-            WHERE membership.user_id = $1
+            WHERE membership.organization_membership_id  = $1
 
             UNION
 
@@ -108,7 +108,22 @@ const generatePermissionPolicy = async (membershipId) => {
             ON membership.organization_membership_id = membership_permission.organization_membership_id
             LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
             ON membership_permission.resource_permission_id = resourcePermission.resource_permission_id
-            WHERE membership.user_id = $1;
+            WHERE membership.organization_membership_id  = $1
+
+            UNION
+
+           SELECT 
+            membership.organization_id,
+            membership.user_id,
+            membership.organization_membership_id,
+            resourcePermission.name,
+            resourcePermission.slug,
+            resourcePermission.description,
+            resourcePermission.action
+          FROM ${TABLE_SCHEMA?.ORG_MEMBERSHIP} membership
+          CROSS JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
+          WHERE membership.organization_membership_id  = $1
+            AND resourcePermission.default_access = true;
           `,
       values: [membershipId],
     };
@@ -128,16 +143,17 @@ const generatePermissionPolicy = async (membershipId) => {
             ON membership.organization_membership_id = denied_permission.organization_membership_id
             LEFT JOIN ${TABLE_SCHEMA?.MODULES_RESOURCE_PERMISSION} resourcePermission
             ON denied_permission.resource_permission_id = resourcePermission.resource_permission_id
-            WHERE membership.user_id = $1; 
+            WHERE membership.organization_membership_id = $1; 
       `,
       values: [membershipId],
     };
 
-    const allowedPermission = await pool.query(allowedPermissionQuery);
-    const deniedPermission = await pool.query(deniedPermissionQuery);
-
-    console.log('allowedPermission : ', allowedPermission);
-    console.log('deniedPermission : ', deniedPermission);
+    const allowedPermission = (
+      (await pool.query(allowedPermissionQuery)).rows || []
+    ).filter((row) => row.slug !== null);
+    const deniedPermission = (
+      (await pool.query(deniedPermissionQuery)).rows || []
+    ).filter((row) => row.slug !== null);
 
     const allowedPermissionObjet = {};
 
@@ -155,8 +171,6 @@ const generatePermissionPolicy = async (membershipId) => {
         }
       }
     }
-
-    console.log('allowedPermissionObjet : ', allowedPermissionObjet);
 
     return allowedPermissionObjet;
   } catch (error) {
@@ -203,7 +217,6 @@ const createPolicy = async (
       values: [membershipId, permissionVersion, policyDocument],
     });
 
-    // console.log('CREATE POLICY RESULT : ', result);
     await client.query('COMMIT');
 
     return result;

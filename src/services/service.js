@@ -2,11 +2,11 @@
 import {
   generateOTPQuery,
   resetOtpStatus,
-} from "../modules/admin/auth/repository.js";
-import redisClient from "./redisClient.js";
-import bcrypt from "bcrypt";
-import { HASHED_SALT, OTP_EXPIRY_TIME } from "../utils/constant.js";
-import { generateOTP } from "../utils/utils.js";
+} from '../modules/admin/auth/repository.js';
+import redisClient from './redisClient.js';
+import bcrypt from 'bcrypt';
+import { HASHED_SALT, OTP_EXPIRY_TIME } from '../utils/constant.js';
+import { generateOTP } from '../utils/utils.js';
 
 export const generateOTPService = async (
   userId,
@@ -16,7 +16,7 @@ export const generateOTPService = async (
   otpExpiryTime,
 ) => {
   if (!userId) {
-    throw new Error("User is not authorised, please login");
+    throw new Error('User is not authorised, please login');
   }
 
   let otpAttempts = await redisClient.get(`${otp_type}_attempts:${userId}`);
@@ -24,7 +24,7 @@ export const generateOTPService = async (
   if (otpAttempts !== null) {
     if (Number(otpAttempts) === 0) {
       throw new Error(
-        "You have reached the maximum of 3 OTP attempts. try again after 1 hours",
+        'You have reached the maximum of 3 OTP attempts. try again after 1 hours',
       );
     } else {
       otpAttempts = await redisClient.decrby(
@@ -37,9 +37,9 @@ export const generateOTPService = async (
     await redisClient.set(
       `${otp_type}_attempts:${userId}`,
       2,
-      "EX",
+      'EX',
       60 * 60,
-      "NX",
+      'NX',
     );
     otpAttempts = 2;
     await resetOtpStatus(userId);
@@ -54,13 +54,13 @@ export const generateOTPService = async (
   );
 
   if (!userInfo?.rowCount) {
-    throw new Error("Error Generating OTP");
+    throw new Error('Error Generating OTP');
   }
 
   const data = {
     otp_attempts: otpAttempts,
     otp_created_at: userInfo?.rows[0]?.otp_created_at,
-    screen: "otp",
+    screen: 'otp',
   };
 
   return data;
@@ -88,12 +88,12 @@ export const generate2FAOTPService = async (
   // 1. 🚫 Cooldown check
   const otpCooldown = await redisClient.get(cooldownKey);
 
-  if (otpCooldown === "true") {
+  if (otpCooldown === 'true') {
     const remaining = await redisClient.get(attemptsKey);
 
     return res.status(400).json({
       otpAttempts: Number(remaining ?? 0),
-      message: "OTP already sent. Please wait before requesting again.",
+      message: 'OTP already sent. Please wait before requesting again.',
     });
   }
 
@@ -104,7 +104,7 @@ export const generate2FAOTPService = async (
     return res.status(400).json({
       otpAttempts: 0,
       message:
-        "You have reached the maximum number of OTP requests. Try again after 1 hour.",
+        'You have reached the maximum number of OTP requests. Try again after 1 hour.',
     });
   }
 
@@ -112,17 +112,17 @@ export const generate2FAOTPService = async (
   let remaining;
 
   if (otpAttempts === null) {
-    await redisClient.set(attemptsKey, 2, "EX", 3600);
+    await redisClient.set(attemptsKey, 2, 'EX', 3600);
     remaining = 2;
   } else {
     remaining = await redisClient.decr(attemptsKey);
 
     if (remaining < 0) {
-      await redisClient.set(attemptsKey, 0, "KEEPTTL");
+      await redisClient.set(attemptsKey, 0, 'KEEPTTL');
 
       return res.status(400).json({
         otpAttempts: 0,
-        message: "OTP request limit reached",
+        message: 'OTP request limit reached',
       });
     }
   }
@@ -130,32 +130,28 @@ export const generate2FAOTPService = async (
   // ✅ 4. NOW generate OTP
   const otp = generateOTP();
 
-  console.log("2FA OTP : ", otp);
-
   const hashedOTP = await bcrypt.hash(otp.toString(), HASHED_SALT);
 
   // 5. 🔁 Store OTP
-  await redisClient.set(`otp:${userId}`, hashedOTP, "EX", 300);
+  await redisClient.set(`otp:${userId}`, hashedOTP, 'EX', 300);
 
   // 6. 🔄 Reset verify attempts
-  await redisClient.set(`otp_verify_attempts:${tempSessionId}`, 3, "EX", 300);
+  await redisClient.set(`otp_verify_attempts:${tempSessionId}`, 3, 'EX', 300);
 
   // 7. 🧾 Temp session
   await redisClient.set(
     `temp_session:${tempSessionId}`,
     JSON.stringify(userInfo),
-    "EX",
+    'EX',
     600,
   );
 
   // 8. ⏳ Cooldown
-  await redisClient.set(cooldownKey, "true", "EX", 60);
-
-  console.log("userInfo : ", userInfo);
+  await redisClient.set(cooldownKey, 'true', 'EX', 60);
 
   return res.status(200).json({
     otpAttempts: Number(remaining),
     data: userInfo,
-    message: "OTP sent successfully",
+    message: 'OTP sent successfully',
   });
 };
