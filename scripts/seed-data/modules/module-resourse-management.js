@@ -487,6 +487,15 @@ const module_resource_seed_data = [
             is_active: true,
             default_access: true,
           },
+          {
+            name: 'permission-denied-page',
+            slug: 'public-page:403',
+            action: 'read',
+            description: 'Permission Denied',
+            is_system: true,
+            is_active: true,
+            default_access: true,
+          },
         ],
       },
       {

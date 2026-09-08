@@ -231,6 +231,8 @@ const loginController = asyncHandler(async (req, res) => {
   const preauth_attempts_remaining = PRE_AUTH_ATTEMPTS - 1;
   const otp = await generateOTP();
 
+  console.log(`PRE AUTH OTP FOR ${user?.email} : `, otp);
+
   const otp_attempts = OTP_ATTEMPTS - 1;
   const otp_verification_attempts = OTP_VERIFICATION_ATTEMPTS;
 
@@ -666,6 +668,8 @@ const generateOtpController = asyncHandler(async (req, res) => {
   }
 
   const otp = await generateOTP();
+
+  console.log(`RESEND OTP adityamane27023@gmail.com`, otp);
 
   const can_resend_in = new Date().getTime() + 30 * 1000;
 

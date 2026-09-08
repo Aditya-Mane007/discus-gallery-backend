@@ -189,8 +189,8 @@ CREATE TABLE modules.resource_permission (
     CONSTRAINT uq_resource_permission_slug
         UNIQUE (resource_id, slug),
 
-    CONSTRAINT uq_resource_permission_action
-        UNIQUE (resource_id, action),
+    -- CONSTRAINT uq_resource_permission_action
+    --     UNIQUE (resource_id, action),
 
     CONSTRAINT fk_resource_permission_resource
         FOREIGN KEY (resource_id)
