@@ -182,12 +182,14 @@ const seedResourcePermissionData = async (
 //   }
 // };
 
-const getModuleList = async (limit, offset, orderBy) => {
+const getModuleList = async (limit, offset, orderBy, searchText) => {
   const client = await pool.connect();
 
   const allowedColumns = ['module_id', 'name', 'portal_id', 'is_active'];
 
   const formattedOrderBy = orderBy ?? 'module_id';
+
+  const formatedSearchtext = searchText ?? '';
 
   try {
     await client.query('BEGIN');
@@ -202,6 +204,7 @@ const getModuleList = async (limit, offset, orderBy) => {
           is_active,
           COUNT(*) OVER() AS total_records        
         FROM ${TABLE_SCHEMA.MODULES_MODULE}
+        WHERE name ILIKE '%${formatedSearchtext}%' OR "description" ILIKE '%${formatedSearchtext}%'
         ORDER BY ${formattedOrderBy}
         LIMIT $1 OFFSET $2;
         `,

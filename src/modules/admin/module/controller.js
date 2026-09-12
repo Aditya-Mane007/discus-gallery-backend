@@ -16,8 +16,9 @@ const getAllModuleList = asyncHandler(async (req, res) => {
   const limit = req?.body?.limit ?? 10;
   const offset = req?.body?.offset ?? 0;
   const orderBy = req?.body?.order_by ?? null;
+  const q = req.body?.q ?? '';
 
-  const moduleList = await getModuleList(limit, offset, orderBy);
+  const moduleList = await getModuleList(limit, offset, orderBy, q);
 
   return res.status(200).json({
     ...moduleList,
