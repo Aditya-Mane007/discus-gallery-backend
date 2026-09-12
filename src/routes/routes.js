@@ -20,4 +20,6 @@ router.use(
   require('../modules/admin/permission-engine/routes.js'),
 );
 
+router.use('/admin/modules', require('../modules/admin/module/routes.js'));
+
 module.exports = router;

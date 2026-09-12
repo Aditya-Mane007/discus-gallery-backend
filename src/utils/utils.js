@@ -139,6 +139,17 @@ const send = async (recipent, otp) => {
   });
 };
 
+const getTableMetaData = (offset, rowCount, totalRecords) => {
+  const totalRecordsCount = rowCount > 0 ? Number(totalRecords) : 0;
+
+  const hasNextPage = Number(offset) + Number(rowCount) < totalRecordsCount;
+
+  return {
+    total_records: totalRecords,
+    has_next_page: hasNextPage,
+  };
+};
+
 module.exports = {
   generateToken,
   generateTempSessionToken,
@@ -152,4 +163,5 @@ module.exports = {
   generateOTP,
   send,
   generateUUID,
+  getTableMetaData,
 };

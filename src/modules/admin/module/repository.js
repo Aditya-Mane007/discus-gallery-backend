@@ -1,5 +1,6 @@
-const { pool } = require('../../../config/db');
+const { pool } = require('../../../config/db.js');
 const { TABLE_SCHEMA } = require('../../../utils/constant');
+const { getTableMetaData } = require('../../../utils/utils.js');
 
 const fetchRootUser = async (client) => {
   const email = process.env.ROOT_ACCOUNT_EMAIL;
@@ -124,9 +125,115 @@ const seedResourcePermissionData = async (
   }
 };
 
+// SELECT id, name, price, category
+// FROM products
+// ORDER BY category ASC, price DESC
+// LIMIT 5 OFFSET 0;
+
+// const getModuleList = async (limit, offset, orderBy) => {
+//   const client = await pool.connect();
+//   // 1. Sanitize/validate dynamic identifiers since they can't be parameterized ($3)
+//   const allowedColumns = ['module_id', 'name', 'portal_id', 'is_active']; // Add your valid columns here
+//   const formattedOrderBy =
+//     (allowedColumns.includes(orderBy) ?? 'module_id') ? orderBy : 'module_id';
+
+//   try {
+//     await client.query('BEGIN');
+//     const query = {
+//       name: 'get-module-list',
+//       text: `SELECT
+//               name,
+//               portal_id,
+//               description,
+//               is_system,
+//               is_active,
+//               COUNT(*) AS total_count,
+//               (COUNT(*) > ($2 + $1)) AS has_next_page
+
+//             FROM ${TABLE_SCHEMA?.MODULES_MODULE}
+//             ORDER BY ${formattedOrderBy}
+//             LIMIT $1 OFFSET $2;
+
+//       `,
+//       values: [limit, offset], // Removed formattedOrderBy from here
+//     };
+
+//     // Because there are two queries, result will be an array: [result1, result2]
+//     const results = await client.query(query);
+
+//     console.log('RESULTS : ', results?.rows[0]);
+
+//     // // 2. Extract only the clean row data instead of returning the raw pg result
+//     // const modules = results[0].rows[];
+//     // const meta = results[1].rows[0];
+
+//     await client.query('COMMIT');
+//     return true;
+//     // return {
+//     //   modules,
+//     //   totalCount: parseInt(meta.total_count, 10),
+//     //   hasNextPage: meta.has_next_page,
+//     // };
+//   } catch (error) {
+//     console.error('Error : ', error);
+//     throw error; // Rethrow so your controller layer knows the request failed
+//   } finally {
+//     await client.release();
+//   }
+// };
+
+const getModuleList = async (limit, offset, orderBy) => {
+  const client = await pool.connect();
+
+  const allowedColumns = ['module_id', 'name', 'portal_id', 'is_active'];
+
+  const formattedOrderBy = orderBy ?? 'module_id';
+
+  try {
+    await client.query('BEGIN');
+    const query = {
+      text: `
+        SELECT 
+          module_id,
+          name,
+          portal_id,
+          description,
+          is_system,
+          is_active,
+          COUNT(*) OVER() AS total_records        
+        FROM ${TABLE_SCHEMA.MODULES_MODULE}
+        ORDER BY ${formattedOrderBy}
+        LIMIT $1 OFFSET $2;
+        `,
+      values: [limit, offset],
+    };
+
+    const result = await client.query(query);
+
+    await client.query('COMMIT');
+
+    const totalRecords =
+      result?.rows?.length > 0 ? Number(result?.rows[0]?.total_records) : 0;
+    const rowCount = result?.rowCount;
+
+    return {
+      data: result?.rows ?? [],
+      meta: {
+        ...getTableMetaData(offset, rowCount, totalRecords),
+      },
+    };
+  } catch (error) {
+    console.error('Error:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   fetchRootUser,
   seedModuleData,
   seedResoucreData,
   seedResourcePermissionData,
+  getModuleList,
 };
