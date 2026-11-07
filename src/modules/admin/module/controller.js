@@ -11,12 +11,12 @@ const getAllModuleList = asyncHandler(async (req, res) => {
     });
   }
 
-  //   console.log('REQ BODY : ', req);
+  console.log('REQ PARAMS : ', req);
 
-  const limit = req?.body?.limit ?? 10;
-  const offset = req?.body?.offset ?? 0;
-  const orderBy = req?.body?.order_by ?? null;
-  const q = req.body?.q ?? '';
+  const limit = Number(req?.query?.limit ?? 10);
+  const offset = Number(req?.query?.offset ?? 0);
+  const orderBy = req?.query?.order_by ?? null;
+  const q = req.query?.q ?? '';
 
   const moduleList = await getModuleList(limit, offset, orderBy, q);
 
